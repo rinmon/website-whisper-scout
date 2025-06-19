@@ -8,11 +8,18 @@ import { Separator } from "@/components/ui/separator";
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  onLogout?: () => void;
 }
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
   const userPoints = 2450;
   const userName = "田中 太郎";
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -38,7 +45,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   {userName.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 ログアウト
               </Button>
             </div>

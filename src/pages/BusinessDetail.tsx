@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +79,10 @@ const BusinessDetail = () => {
     );
   }
 
+  const handleLogout = () => {
+    navigate("/");
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 3.5) return "text-green-600";
     if (score >= 2.5) return "text-yellow-600";
@@ -95,7 +98,7 @@ const BusinessDetail = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout onLogout={handleLogout}>
       <div className="space-y-6">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">

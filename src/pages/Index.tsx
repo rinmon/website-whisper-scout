@@ -63,6 +63,14 @@ const Index = () => {
   const [scoreFilter, setScoreFilter] = useState("all");
   const { toast } = useToast();
 
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    toast({
+      title: "ログアウトしました",
+      description: "ご利用ありがとうございました",
+    });
+  };
+
   useEffect(() => {
     // フィルタリングロジック
     let filtered = businesses;
@@ -117,7 +125,7 @@ const Index = () => {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout onLogout={handleLogout}>
       <div className="space-y-6">
         {/* ヘッダー */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

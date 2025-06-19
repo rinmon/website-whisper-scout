@@ -178,12 +178,7 @@ const Index = () => {
                 </SelectContent>
               </Select>
               <Button 
-                onClick={() => {
-                  toast({
-                    title: "レポート生成中",
-                    description: "詳細レポートを作成しています...",
-                  });
-                }}
+                onClick={() => navigate("/report")}
                 className="bg-gradient-to-r from-blue-600 to-purple-600"
               >
                 レポート生成

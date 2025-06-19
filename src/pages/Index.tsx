@@ -1,5 +1,5 @@
-
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ const mockBusinesses = [
 ];
 
 const Index = () => {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [businesses, setBusinesses] = useState(mockBusinesses);
   const [filteredBusinesses, setFilteredBusinesses] = useState(mockBusinesses);
@@ -248,12 +249,7 @@ const Index = () => {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => {
-                      toast({
-                        title: "詳細分析",
-                        description: `${business.name}の詳細レポートを表示します`,
-                      });
-                    }}
+                    onClick={() => navigate(`/business/${business.id}`)}
                   >
                     詳細分析
                   </Button>

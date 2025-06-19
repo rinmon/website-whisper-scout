@@ -1,10 +1,12 @@
 
 import { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Settings } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -12,6 +14,7 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
+  const navigate = useNavigate();
   const userPoints = 2450;
   const userName = "田中 太郎";
 
@@ -40,6 +43,9 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
               <Badge variant="secondary" className="px-3 py-1">
                 💎 {userPoints.toLocaleString()} pt
               </Badge>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/settings")}>
+                <Settings className="h-4 w-4" />
+              </Button>
               <Avatar>
                 <AvatarFallback className="bg-blue-600 text-white">
                   {userName.charAt(0)}

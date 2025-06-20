@@ -21,19 +21,23 @@ interface ScoreDistributionChartProps {
   businesses: Business[];
 }
 
+// Utility function to ensure safe numeric values
+const sanitizeNumber = (value: number, fallback: number = 0): number => {
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(5, value)); // Clamp between 0 and 5
+};
+
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart received businesses:", businesses);
 
   // フィルタリング: ウェブサイトを持つ企業のみを対象、かつ有効なスコアを持つもの
   const businessesWithWebsite = businesses.filter(b => {
-    const hasValidScore = b.has_website && 
-      typeof b.overall_score === 'number' && 
-      !isNaN(b.overall_score) && 
-      isFinite(b.overall_score) &&
-      b.overall_score >= 0 &&
-      b.overall_score <= 5; // スコアの上限も確認
+    const sanitizedScore = sanitizeNumber(b.overall_score);
+    const hasValidScore = b.has_website && sanitizedScore > 0;
     
-    console.log(`Business ${b.name}: has_website=${b.has_website}, overall_score=${b.overall_score}, hasValidScore=${hasValidScore}`);
+    console.log(`Business ${b.name}: has_website=${b.has_website}, overall_score=${b.overall_score}, sanitized=${sanitizedScore}, hasValidScore=${hasValidScore}`);
     return hasValidScore;
   });
 
@@ -49,16 +53,16 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   ];
 
   const distributionData = scoreRanges.map(range => {
-    const count = businessesWithWebsite.filter(b => 
-      b.overall_score >= range.min && 
-      b.overall_score < range.max
-    ).length;
+    const count = businessesWithWebsite.filter(b => {
+      const sanitizedScore = sanitizeNumber(b.overall_score);
+      return sanitizedScore >= range.min && sanitizedScore < range.max;
+    }).length;
     
     console.log(`Score range ${range.range}: count=${count}`);
     
     return {
       range: range.range,
-      count,
+      count: Math.max(0, count), // Ensure non-negative
       color: range.color
     };
   });
@@ -75,13 +79,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
       acc[business.industry] = { total: 0, count: 0 };
     }
     
-    // より厳密なスコアチェック
-    if (typeof business.overall_score === 'number' && 
-        !isNaN(business.overall_score) && 
-        isFinite(business.overall_score) &&
-        business.overall_score >= 0 &&
-        business.overall_score <= 5) {
-      acc[business.industry].total += business.overall_score;
+    const sanitizedScore = sanitizeNumber(business.overall_score);
+    if (sanitizedScore > 0) {
+      acc[business.industry].total += sanitizedScore;
       acc[business.industry].count += 1;
     }
     return acc;
@@ -90,26 +90,21 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   console.log("Industry groups:", industryGroups);
 
   const industryData = Object.entries(industryGroups)
-    .filter(([_, data]) => data.count > 0) // 企業数が0の業界を除外
+    .filter(([_, data]) => data.count > 0)
     .map(([industry, data]) => {
-      // Math.roundを使って浮動小数点の精度問題を解決
-      const average = Math.round((data.total / data.count) * 10) / 10;
+      const rawAverage = data.total / data.count;
+      const roundedAverage = Math.round(rawAverage * 10) / 10;
+      const sanitizedAverage = sanitizeNumber(roundedAverage, 0);
       
-      // 厳密な検証
-      const validAverage = typeof average === 'number' && 
-        !isNaN(average) && 
-        isFinite(average) && 
-        average >= 0 && 
-        average <= 5 ? average : 0;
-      
-      console.log(`Industry ${industry}: raw average=${data.total / data.count}, rounded average=${average}, validAverage=${validAverage}`);
+      console.log(`Industry ${industry}: raw=${rawAverage}, rounded=${roundedAverage}, sanitized=${sanitizedAverage}`);
       
       return {
         industry,
-        average: validAverage
+        average: sanitizedAverage
       };
     })
-    .filter(item => item.average > 0); // 0より大きい平均値のみを含める
+    .filter(item => item.average > 0)
+    .sort((a, b) => b.average - a.average); // Sort by average score descending
 
   console.log("Final industry data:", industryData);
 
@@ -144,7 +139,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
 
         <Card>
           <CardHeader>
-            <CardTitle>業界別平均スコア</CardTitle>
+            <CardTitle>业界別平均スコア</CardTitle>
             <CardDescription>
               各業界のウェブサイト品質平均値
             </CardDescription>
@@ -169,33 +164,40 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig}>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={distributionData}>
-                <XAxis 
-                  dataKey="range" 
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <YAxis 
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                  domain={[0, maxCount]}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />}
-                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-                />
-                <Bar 
-                  dataKey="count" 
-                  radius={[4, 4, 0, 0]}
-                  fill="var(--color-count)"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+          {distributionData.some(d => d.count > 0) ? (
+            <ChartContainer config={chartConfig}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={distributionData}>
+                  <XAxis 
+                    dataKey="range" 
+                    tickLine={false}
+                    axisLine={false}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    tickLine={false}
+                    axisLine={false}
+                    className="text-xs"
+                    domain={[0, maxCount]}
+                    type="number"
+                  />
+                  <ChartTooltip 
+                    content={<ChartTooltipContent />}
+                    cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    radius={[4, 4, 0, 0]}
+                    fill="var(--color-count)"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              スコアデータがありません
+            </div>
+          )}
         </CardContent>
       </Card>
 

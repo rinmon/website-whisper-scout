@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import DashboardLayout from "@/components/DashboardLayout";
 import LoginForm from "@/components/LoginForm";
+import StatsOverview from "@/components/StatsOverview";
+import ScoreDistributionChart from "@/components/ScoreDistributionChart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -142,6 +145,12 @@ const Index = () => {
             </Badge>
           </div>
         </div>
+
+        {/* 統計概要 */}
+        <StatsOverview businesses={filteredBusinesses} />
+
+        {/* チャート */}
+        <ScoreDistributionChart businesses={businesses} />
 
         {/* フィルターエリア */}
         <Card>

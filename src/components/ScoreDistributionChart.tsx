@@ -22,8 +22,21 @@ interface ScoreDistributionChartProps {
 }
 
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
-  // フィルタリング: ウェブサイトを持つ企業のみを対象
-  const businessesWithWebsite = businesses.filter(b => b.has_website && !isNaN(b.overall_score));
+  console.log("ScoreDistributionChart received businesses:", businesses);
+
+  // フィルタリング: ウェブサイトを持つ企業のみを対象、かつ有効なスコアを持つもの
+  const businessesWithWebsite = businesses.filter(b => {
+    const hasValidScore = b.has_website && 
+      typeof b.overall_score === 'number' && 
+      !isNaN(b.overall_score) && 
+      isFinite(b.overall_score) &&
+      b.overall_score >= 0;
+    
+    console.log(`Business ${b.name}: has_website=${b.has_website}, overall_score=${b.overall_score}, hasValidScore=${hasValidScore}`);
+    return hasValidScore;
+  });
+
+  console.log("Filtered businesses with valid scores:", businessesWithWebsite);
 
   // スコア分布データの準備
   const scoreRanges = [
@@ -40,6 +53,8 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
       b.overall_score < range.max
     ).length;
     
+    console.log(`Score range ${range.range}: count=${count}`);
+    
     return {
       range: range.range,
       count,
@@ -47,26 +62,48 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     };
   });
 
-  // 業界別平均スコア
+  console.log("Distribution data:", distributionData);
+
+  // 業界別平均スコア - より厳密なバリデーション
   const industryGroups = businessesWithWebsite.reduce((acc, business) => {
     if (!acc[business.industry]) {
       acc[business.industry] = { total: 0, count: 0 };
     }
-    // NaNチェックを追加
-    if (!isNaN(business.overall_score)) {
+    
+    // より厳密なスコアチェック
+    if (typeof business.overall_score === 'number' && 
+        !isNaN(business.overall_score) && 
+        isFinite(business.overall_score) &&
+        business.overall_score >= 0) {
       acc[business.industry].total += business.overall_score;
       acc[business.industry].count += 1;
     }
     return acc;
   }, {} as Record<string, { total: number; count: number }>);
 
+  console.log("Industry groups:", industryGroups);
+
   const industryData = Object.entries(industryGroups)
     .filter(([_, data]) => data.count > 0) // 企業数が0の業界を除外
-    .map(([industry, data]) => ({
-      industry,
-      average: Number((data.total / data.count).toFixed(1))
-    }))
-    .filter(item => !isNaN(item.average)); // NaNの結果を除外
+    .map(([industry, data]) => {
+      const average = data.total / data.count;
+      // NaN、無限大、負の値をチェック
+      const validAverage = typeof average === 'number' && 
+        !isNaN(average) && 
+        isFinite(average) && 
+        average >= 0 ? 
+        Number(average.toFixed(1)) : 0;
+      
+      console.log(`Industry ${industry}: average=${average}, validAverage=${validAverage}`);
+      
+      return {
+        industry,
+        average: validAverage
+      };
+    })
+    .filter(item => item.average > 0); // 0より大きい平均値のみを含める
+
+  console.log("Final industry data:", industryData);
 
   const chartConfig = {
     count: {

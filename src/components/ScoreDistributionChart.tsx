@@ -65,6 +65,10 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
 
   console.log("Distribution data:", distributionData);
 
+  // 最大カウント数を取得（Y軸のドメイン設定用）
+  const maxCount = Math.max(...distributionData.map(d => d.count), 1);
+  console.log("Max count for Y axis:", maxCount);
+
   // 業界別平均スコア - より厳密な数値処理
   const industryGroups = businessesWithWebsite.reduce((acc, business) => {
     if (!acc[business.industry]) {
@@ -178,7 +182,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
-                  domain={[0, 'dataMax']}
+                  domain={[0, maxCount]}
                 />
                 <ChartTooltip 
                   content={<ChartTooltipContent />}

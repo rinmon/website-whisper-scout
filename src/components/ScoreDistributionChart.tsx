@@ -30,7 +30,8 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
       typeof b.overall_score === 'number' && 
       !isNaN(b.overall_score) && 
       isFinite(b.overall_score) &&
-      b.overall_score >= 0;
+      b.overall_score >= 0 &&
+      b.overall_score <= 5; // スコアの上限も確認
     
     console.log(`Business ${b.name}: has_website=${b.has_website}, overall_score=${b.overall_score}, hasValidScore=${hasValidScore}`);
     return hasValidScore;
@@ -64,7 +65,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
 
   console.log("Distribution data:", distributionData);
 
-  // 業界別平均スコア - より厳密なバリデーション
+  // 業界別平均スコア - より厳密な数値処理
   const industryGroups = businessesWithWebsite.reduce((acc, business) => {
     if (!acc[business.industry]) {
       acc[business.industry] = { total: 0, count: 0 };
@@ -74,7 +75,8 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     if (typeof business.overall_score === 'number' && 
         !isNaN(business.overall_score) && 
         isFinite(business.overall_score) &&
-        business.overall_score >= 0) {
+        business.overall_score >= 0 &&
+        business.overall_score <= 5) {
       acc[business.industry].total += business.overall_score;
       acc[business.industry].count += 1;
     }
@@ -86,15 +88,17 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   const industryData = Object.entries(industryGroups)
     .filter(([_, data]) => data.count > 0) // 企業数が0の業界を除外
     .map(([industry, data]) => {
-      const average = data.total / data.count;
-      // NaN、無限大、負の値をチェック
+      // Math.roundを使って浮動小数点の精度問題を解決
+      const average = Math.round((data.total / data.count) * 10) / 10;
+      
+      // 厳密な検証
       const validAverage = typeof average === 'number' && 
         !isNaN(average) && 
         isFinite(average) && 
-        average >= 0 ? 
-        Number(average.toFixed(1)) : 0;
+        average >= 0 && 
+        average <= 5 ? average : 0;
       
-      console.log(`Industry ${industry}: average=${average}, validAverage=${validAverage}`);
+      console.log(`Industry ${industry}: raw average=${data.total / data.count}, rounded average=${average}, validAverage=${validAverage}`);
       
       return {
         industry,
@@ -174,6 +178,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
+                  domain={[0, 'dataMax']}
                 />
                 <ChartTooltip 
                   content={<ChartTooltipContent />}
@@ -204,7 +209,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                 <BarChart data={industryData} layout="horizontal">
                   <XAxis 
                     type="number"
-                    domain={[0, 'dataMax']}
+                    domain={[0, 5]}
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"

@@ -21,29 +21,62 @@ interface ScoreDistributionChartProps {
   businesses: Business[];
 }
 
-// Utility function to ensure safe numeric values
-const sanitizeNumber = (value: number, fallback: number = 0): number => {
-  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+// Comprehensive utility function to ensure safe numeric values
+const sanitizeNumber = (value: any, fallback: number = 0): number => {
+  // Handle null, undefined, or non-numeric values
+  if (value === null || value === undefined || typeof value !== 'number') {
     return fallback;
   }
-  return Math.max(0, Math.min(5, value)); // Clamp between 0 and 5
+  
+  // Handle NaN and Infinity
+  if (isNaN(value) || !isFinite(value)) {
+    return fallback;
+  }
+  
+  // Clamp between 0 and 5 for score values
+  return Math.max(0, Math.min(5, value));
+};
+
+// Sanitize entire data objects
+const sanitizeChartData = (data: any[]): any[] => {
+  return data.map(item => {
+    const sanitized = { ...item };
+    Object.keys(sanitized).forEach(key => {
+      if (typeof sanitized[key] === 'number') {
+        sanitized[key] = sanitizeNumber(sanitized[key]);
+      }
+    });
+    return sanitized;
+  }).filter(item => {
+    // Remove items where all numeric values are 0 (likely invalid)
+    const numericValues = Object.values(item).filter(v => typeof v === 'number');
+    return numericValues.some(v => v > 0);
+  });
 };
 
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart received businesses:", businesses);
 
-  // フィルタリング: ウェブサイトを持つ企業のみを対象、かつ有効なスコアを持つもの
-  const businessesWithWebsite = businesses.filter(b => {
-    const sanitizedScore = sanitizeNumber(b.overall_score);
-    const hasValidScore = b.has_website && sanitizedScore > 0;
-    
-    console.log(`Business ${b.name}: has_website=${b.has_website}, overall_score=${b.overall_score}, sanitized=${sanitizedScore}, hasValidScore=${hasValidScore}`);
+  // First, sanitize all business data
+  const sanitizedBusinesses = businesses.map(b => ({
+    ...b,
+    overall_score: sanitizeNumber(b.overall_score),
+    technical_score: sanitizeNumber(b.technical_score),
+    eeat_score: sanitizeNumber(b.eeat_score),
+    content_score: sanitizeNumber(b.content_score),
+    ai_content_score: b.ai_content_score !== null ? sanitizeNumber(b.ai_content_score) : null
+  }));
+
+  // Filter: only businesses with websites and valid scores
+  const businessesWithWebsite = sanitizedBusinesses.filter(b => {
+    const hasValidScore = b.has_website && b.overall_score > 0;
+    console.log(`Business ${b.name}: has_website=${b.has_website}, overall_score=${b.overall_score}, hasValidScore=${hasValidScore}`);
     return hasValidScore;
   });
 
   console.log("Filtered businesses with valid scores:", businessesWithWebsite);
 
-  // スコア分布データの準備
+  // Score distribution data preparation with extra validation
   const scoreRanges = [
     { range: "0-1", min: 0, max: 1, color: "#ef4444" },
     { range: "1-2", min: 1, max: 2, color: "#f97316" },
@@ -52,10 +85,10 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     { range: "4-5", min: 4, max: 5, color: "#16a34a" },
   ];
 
-  const distributionData = scoreRanges.map(range => {
+  let distributionData = scoreRanges.map(range => {
     const count = businessesWithWebsite.filter(b => {
-      const sanitizedScore = sanitizeNumber(b.overall_score);
-      return sanitizedScore >= range.min && sanitizedScore < range.max;
+      const score = sanitizeNumber(b.overall_score);
+      return score >= range.min && score < range.max;
     }).length;
     
     console.log(`Score range ${range.range}: count=${count}`);
@@ -67,21 +100,19 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     };
   });
 
-  console.log("Distribution data:", distributionData);
+  // Sanitize the distribution data
+  distributionData = sanitizeChartData(distributionData);
+  console.log("Distribution data after sanitization:", distributionData);
 
-  // 最大カウント数を取得（Y軸のドメイン設定用）
-  const maxCount = Math.max(...distributionData.map(d => d.count), 1);
-  console.log("Max count for Y axis:", maxCount);
-
-  // 業界別平均スコア - より厳密な数値処理
+  // Industry average calculation with enhanced validation
   const industryGroups = businessesWithWebsite.reduce((acc, business) => {
     if (!acc[business.industry]) {
       acc[business.industry] = { total: 0, count: 0 };
     }
     
-    const sanitizedScore = sanitizeNumber(business.overall_score);
-    if (sanitizedScore > 0) {
-      acc[business.industry].total += sanitizedScore;
+    const score = sanitizeNumber(business.overall_score);
+    if (score > 0) {
+      acc[business.industry].total += score;
       acc[business.industry].count += 1;
     }
     return acc;
@@ -89,24 +120,25 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
 
   console.log("Industry groups:", industryGroups);
 
-  const industryData = Object.entries(industryGroups)
+  let industryData = Object.entries(industryGroups)
     .filter(([_, data]) => data.count > 0)
     .map(([industry, data]) => {
       const rawAverage = data.total / data.count;
-      const roundedAverage = Math.round(rawAverage * 10) / 10;
-      const sanitizedAverage = sanitizeNumber(roundedAverage, 0);
+      const average = sanitizeNumber(rawAverage);
       
-      console.log(`Industry ${industry}: raw=${rawAverage}, rounded=${roundedAverage}, sanitized=${sanitizedAverage}`);
+      console.log(`Industry ${industry}: raw=${rawAverage}, sanitized=${average}`);
       
       return {
         industry,
-        average: sanitizedAverage
+        average
       };
     })
     .filter(item => item.average > 0)
-    .sort((a, b) => b.average - a.average); // Sort by average score descending
+    .sort((a, b) => b.average - a.average);
 
-  console.log("Final industry data:", industryData);
+  // Sanitize industry data
+  industryData = sanitizeChartData(industryData);
+  console.log("Final industry data after sanitization:", industryData);
 
   const chartConfig = {
     count: {
@@ -119,8 +151,8 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     },
   };
 
-  // データが空の場合の表示
-  if (businessesWithWebsite.length === 0) {
+  // Enhanced empty data handling
+  if (businessesWithWebsite.length === 0 || distributionData.length === 0) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
@@ -139,7 +171,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
 
         <Card>
           <CardHeader>
-            <CardTitle>业界別平均スコア</CardTitle>
+            <CardTitle>業界別平均スコア</CardTitle>
             <CardDescription>
               各業界のウェブサイト品質平均値
             </CardDescription>
@@ -164,7 +196,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {distributionData.some(d => d.count > 0) ? (
+          {distributionData.length > 0 && distributionData.some(d => d.count > 0) ? (
             <ChartContainer config={chartConfig}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={distributionData}>
@@ -178,8 +210,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"
-                    domain={[0, maxCount]}
+                    domain={[0, 10]}
                     type="number"
+                    allowDecimals={false}
                   />
                   <ChartTooltip 
                     content={<ChartTooltipContent />}
@@ -219,6 +252,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"
+                    allowDecimals={false}
                   />
                   <YAxis 
                     dataKey="industry"

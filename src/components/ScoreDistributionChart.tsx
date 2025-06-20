@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
 
 interface Business {
   id: number;
@@ -22,6 +22,9 @@ interface ScoreDistributionChartProps {
 }
 
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
+  // フィルタリング: ウェブサイトを持つ企業のみを対象
+  const businessesWithWebsite = businesses.filter(b => b.has_website && !isNaN(b.overall_score));
+
   // スコア分布データの準備
   const scoreRanges = [
     { range: "0-1", min: 0, max: 1, color: "#ef4444" },
@@ -32,8 +35,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   ];
 
   const distributionData = scoreRanges.map(range => {
-    const count = businesses.filter(b => 
-      b.has_website && 
+    const count = businessesWithWebsite.filter(b => 
       b.overall_score >= range.min && 
       b.overall_score < range.max
     ).length;
@@ -46,21 +48,25 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   });
 
   // 業界別平均スコア
-  const industryData = Object.entries(
-    businesses
-      .filter(b => b.has_website)
-      .reduce((acc, business) => {
-        if (!acc[business.industry]) {
-          acc[business.industry] = { total: 0, count: 0 };
-        }
-        acc[business.industry].total += business.overall_score;
-        acc[business.industry].count += 1;
-        return acc;
-      }, {} as Record<string, { total: number; count: number }>)
-  ).map(([industry, data]) => ({
-    industry,
-    average: Number((data.total / data.count).toFixed(1))
-  }));
+  const industryGroups = businessesWithWebsite.reduce((acc, business) => {
+    if (!acc[business.industry]) {
+      acc[business.industry] = { total: 0, count: 0 };
+    }
+    // NaNチェックを追加
+    if (!isNaN(business.overall_score)) {
+      acc[business.industry].total += business.overall_score;
+      acc[business.industry].count += 1;
+    }
+    return acc;
+  }, {} as Record<string, { total: number; count: number }>);
+
+  const industryData = Object.entries(industryGroups)
+    .filter(([_, data]) => data.count > 0) // 企業数が0の業界を除外
+    .map(([industry, data]) => ({
+      industry,
+      average: Number((data.total / data.count).toFixed(1))
+    }))
+    .filter(item => !isNaN(item.average)); // NaNの結果を除外
 
   const chartConfig = {
     count: {
@@ -72,6 +78,41 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
       color: "#dc2626",
     },
   };
+
+  // データが空の場合の表示
+  if (businessesWithWebsite.length === 0) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>スコア分布</CardTitle>
+            <CardDescription>
+              サイト保有企業の品質スコア分布
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>業界別平均スコア</CardTitle>
+            <CardDescription>
+              各業界のウェブサイト品質平均値
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -118,34 +159,40 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig}>
-            <BarChart data={industryData} layout="horizontal">
-              <XAxis 
-                type="number"
-                domain={[0, 5]}
-                tickLine={false}
-                axisLine={false}
-                className="text-xs"
-              />
-              <YAxis 
-                dataKey="industry"
-                type="category"
-                tickLine={false}
-                axisLine={false}
-                className="text-xs"
-                width={80}
-              />
-              <ChartTooltip 
-                content={<ChartTooltipContent />}
-                cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-              />
-              <Bar 
-                dataKey="average" 
-                radius={[0, 4, 4, 0]}
-                fill="var(--color-average)"
-              />
-            </BarChart>
-          </ChartContainer>
+          {industryData.length > 0 ? (
+            <ChartContainer config={chartConfig}>
+              <BarChart data={industryData} layout="horizontal">
+                <XAxis 
+                  type="number"
+                  domain={[0, 5]}
+                  tickLine={false}
+                  axisLine={false}
+                  className="text-xs"
+                />
+                <YAxis 
+                  dataKey="industry"
+                  type="category"
+                  tickLine={false}
+                  axisLine={false}
+                  className="text-xs"
+                  width={80}
+                />
+                <ChartTooltip 
+                  content={<ChartTooltipContent />}
+                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                />
+                <Bar 
+                  dataKey="average" 
+                  radius={[0, 4, 4, 0]}
+                  fill="var(--color-average)"
+                />
+              </BarChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              業界データがありません
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

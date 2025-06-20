@@ -23,32 +23,54 @@ interface ScoreDistributionChartProps {
 
 // 厳密な数値サニタイズ関数
 const sanitizeNumber = (value: any, fallback: number = 0): number => {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === "") {
     return fallback;
   }
   
-  const num = typeof value === 'number' ? value : parseFloat(value);
+  const num = typeof value === 'number' ? value : Number(value);
   
-  if (isNaN(num) || !isFinite(num)) {
+  if (!Number.isFinite(num) || Number.isNaN(num)) {
     return fallback;
   }
   
-  // 小数点精度を修正し、0-5の範囲に制限
-  const rounded = Math.round(num * 100) / 100;
-  return Math.max(0, Math.min(5, rounded));
+  // 0-5の範囲に制限し、小数点2桁まで
+  const bounded = Math.max(0, Math.min(5, num));
+  return Math.round(bounded * 100) / 100;
 };
 
-// 軸設定用のサニタイズ関数
-const sanitizeAxisValue = (value: any): number => {
-  const sanitized = sanitizeNumber(value);
-  // 軸の値は必ず有効な数値でなければならない
-  return sanitized;
+// 安全な除算関数
+const safeDivide = (numerator: number, denominator: number, fallback: number = 0): number => {
+  const num = sanitizeNumber(numerator);
+  const den = sanitizeNumber(denominator);
+  
+  if (den === 0) {
+    return fallback;
+  }
+  
+  const result = num / den;
+  return sanitizeNumber(result, fallback);
+};
+
+// 配列の安全な最大値取得
+const safeMax = (values: number[], fallback: number = 1): number => {
+  if (!Array.isArray(values) || values.length === 0) {
+    return fallback;
+  }
+  
+  const sanitizedValues = values.map(v => sanitizeNumber(v)).filter(v => v >= 0);
+  
+  if (sanitizedValues.length === 0) {
+    return fallback;
+  }
+  
+  const max = Math.max(...sanitizedValues);
+  return sanitizeNumber(max, fallback);
 };
 
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart received businesses:", businesses);
 
-  // ビジネスデータのサニタイズ
+  // ビジネスデータの厳密なサニタイズ
   const sanitizedBusinesses = businesses.map(b => ({
     ...b,
     overall_score: sanitizeNumber(b.overall_score),
@@ -82,14 +104,14 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     
     return {
       range: range.range,
-      count: sanitizeAxisValue(count), // 軸用にサニタイズ
+      count: sanitizeNumber(count),
       color: range.color
     };
   });
 
   console.log("Distribution data:", distributionData);
 
-  // 業界平均の計算
+  // 業界平均の計算（安全な除算を使用）
   const industryGroups = businessesWithWebsite.reduce((acc, business) => {
     if (!acc[business.industry]) {
       acc[business.industry] = { total: 0, count: 0 };
@@ -97,8 +119,8 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     
     const score = sanitizeNumber(business.overall_score);
     if (score > 0) {
-      acc[business.industry].total += score;
-      acc[business.industry].count += 1;
+      acc[business.industry].total = sanitizeNumber(acc[business.industry].total + score);
+      acc[business.industry].count = sanitizeNumber(acc[business.industry].count + 1);
     }
     return acc;
   }, {} as Record<string, { total: number; count: number }>);
@@ -108,14 +130,14 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   const industryData = Object.entries(industryGroups)
     .filter(([_, data]) => data.count > 0)
     .map(([industry, data]) => {
-      const average = sanitizeNumber(data.total / data.count);
+      const average = safeDivide(data.total, data.count, 0);
       return {
         industry,
-        average: sanitizeAxisValue(average) // 軸用にサニタイズ
+        average: sanitizeNumber(average)
       };
     })
     .filter(item => item.average > 0)
-    .sort((a, b) => b.average - a.average);
+    .sort((a, b) => sanitizeNumber(b.average) - sanitizeNumber(a.average));
 
   console.log("Final industry data:", industryData);
 
@@ -166,8 +188,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   }
 
   // 軸の最大値を安全に計算
-  const maxCount = Math.max(...distributionData.map(d => d.count), 1);
-  const safeMaxCount = sanitizeAxisValue(maxCount);
+  const countValues = distributionData.map(d => d.count);
+  const maxCount = safeMax(countValues, 1);
+  const yAxisMax = sanitizeNumber(maxCount + 1, 2);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -192,9 +215,10 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
-                  domain={[0, safeMaxCount + 1]}
+                  domain={[0, yAxisMax]}
                   type="number"
                   allowDecimals={false}
+                  tickCount={Math.max(2, Math.min(6, yAxisMax + 1))}
                 />
                 <ChartTooltip 
                   content={<ChartTooltipContent />}
@@ -229,7 +253,8 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"
-                    allowDecimals={false}
+                    allowDecimals={true}
+                    tickCount={6}
                   />
                   <YAxis 
                     dataKey="industry"

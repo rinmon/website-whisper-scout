@@ -58,7 +58,7 @@ const UserSettings = () => {
       <div className="space-y-6">
         {/* ヘッダー */}
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={() => navigate("/")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             戻る
           </Button>

@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,9 +72,9 @@ const BusinessDetail = () => {
       <DashboardLayout>
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">企業が見つかりません</h1>
-          <Button onClick={() => navigate(-1)}>
+          <Button onClick={() => navigate("/")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            戻る
+            ホームに戻る
           </Button>
         </div>
       </DashboardLayout>
@@ -110,7 +109,7 @@ const BusinessDetail = () => {
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={() => navigate(-1)}>
+            <Button variant="outline" onClick={() => navigate("/")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               戻る
             </Button>

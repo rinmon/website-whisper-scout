@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import DashboardLayout from "@/components/DashboardLayout";
 import { ArrowLeft, ExternalLink, Globe, Shield, Zap, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 // モックデータ（Index.tsxと同じデータを使用）
 const mockBusinesses = [
@@ -64,6 +65,7 @@ const BusinessDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { logout } = useAuth();
   
   const business = mockBusinesses.find(b => b.id === parseInt(id || "0"));
 
@@ -82,6 +84,7 @@ const BusinessDetail = () => {
   }
 
   const handleLogout = () => {
+    logout();
     toast({
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",

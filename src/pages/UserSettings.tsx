@@ -11,10 +11,12 @@ import { Separator } from "@/components/ui/separator";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, User, Bell, Shield, CreditCard, Download } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const UserSettings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { logout } = useAuth();
   
   const [settings, setSettings] = useState({
     name: "田中 太郎",
@@ -32,6 +34,7 @@ const UserSettings = () => {
   });
 
   const handleLogout = () => {
+    logout();
     toast({
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",

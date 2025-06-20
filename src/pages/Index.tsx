@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import DashboardLayout from "@/components/DashboardLayout";
 import LoginForm from "@/components/LoginForm";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 // モックデータ
 const mockBusinesses = [
@@ -55,7 +56,7 @@ const mockBusinesses = [
 
 const Index = () => {
   const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isLoggedIn, login, logout } = useAuth();
   const [businesses, setBusinesses] = useState(mockBusinesses);
   const [filteredBusinesses, setFilteredBusinesses] = useState(mockBusinesses);
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,7 +65,7 @@ const Index = () => {
   const { toast } = useToast();
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    logout();
     toast({
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",
@@ -121,7 +122,7 @@ const Index = () => {
   };
 
   if (!isLoggedIn) {
-    return <LoginForm onLogin={() => setIsLoggedIn(true)} />;
+    return <LoginForm onLogin={login} />;
   }
 
   return (

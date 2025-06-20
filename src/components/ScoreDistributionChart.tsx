@@ -162,28 +162,30 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig}>
-            <BarChart data={distributionData}>
-              <XAxis 
-                dataKey="range" 
-                tickLine={false}
-                axisLine={false}
-                className="text-xs"
-              />
-              <YAxis 
-                tickLine={false}
-                axisLine={false}
-                className="text-xs"
-              />
-              <ChartTooltip 
-                content={<ChartTooltipContent />}
-                cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-              />
-              <Bar 
-                dataKey="count" 
-                radius={[4, 4, 0, 0]}
-                fill="var(--color-count)"
-              />
-            </BarChart>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={distributionData}>
+                <XAxis 
+                  dataKey="range" 
+                  tickLine={false}
+                  axisLine={false}
+                  className="text-xs"
+                />
+                <YAxis 
+                  tickLine={false}
+                  axisLine={false}
+                  className="text-xs"
+                />
+                <ChartTooltip 
+                  content={<ChartTooltipContent />}
+                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  radius={[4, 4, 0, 0]}
+                  fill="var(--color-count)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </ChartContainer>
         </CardContent>
       </Card>
@@ -198,32 +200,34 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
         <CardContent>
           {industryData.length > 0 ? (
             <ChartContainer config={chartConfig}>
-              <BarChart data={industryData} layout="horizontal">
-                <XAxis 
-                  type="number"
-                  domain={[0, 5]}
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <YAxis 
-                  dataKey="industry"
-                  type="category"
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                  width={80}
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />}
-                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-                />
-                <Bar 
-                  dataKey="average" 
-                  radius={[0, 4, 4, 0]}
-                  fill="var(--color-average)"
-                />
-              </BarChart>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={industryData} layout="horizontal">
+                  <XAxis 
+                    type="number"
+                    domain={[0, 'dataMax']}
+                    tickLine={false}
+                    axisLine={false}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    dataKey="industry"
+                    type="category"
+                    tickLine={false}
+                    axisLine={false}
+                    className="text-xs"
+                    width={80}
+                  />
+                  <ChartTooltip 
+                    content={<ChartTooltipContent />}
+                    cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="average" 
+                    radius={[0, 4, 4, 0]}
+                    fill="var(--color-average)"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           ) : (
             <div className="flex items-center justify-center h-64 text-muted-foreground">

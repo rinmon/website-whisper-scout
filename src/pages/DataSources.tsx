@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -91,14 +92,6 @@ const DataSources = () => {
         console.error('データ削除エラー:', error);
         setCurrentStatus('データ削除に失敗しました');
       }
-      setTimeout(() => setCurrentStatus(''), 2000);
-    }
-  };
-
-  const handleClearUrlHistory = () => {
-    if (confirm('URL履歴をクリアしますか？次回取得時に全URLを再取得します。')) {
-      BusinessDataService.clearUrlHistory();
-      setCurrentStatus('URL履歴をクリアしました');
       setTimeout(() => setCurrentStatus(''), 2000);
     }
   };
@@ -245,15 +238,6 @@ const DataSources = () => {
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 サンプル削除
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleClearUrlHistory}
-                disabled={isRunning}
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                履歴クリア
               </Button>
               <Button 
                 variant="destructive" 

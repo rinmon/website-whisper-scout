@@ -48,7 +48,7 @@ export interface BusinessAnalysis {
 export interface DataSource {
   name: string;
   url: string;
-  type: 'csv' | 'json' | 'api' | 'scrape';
+  type: 'csv' | 'json' | 'api' | 'scrape' | 'mock' | 'document' | 'catalog';
   last_updated: string;
   total_records: number;
 }

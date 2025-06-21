@@ -253,7 +253,7 @@ export class BusinessDataService {
               id: Date.now() + index,
               name: item.name || `企業データ${index + 1}`,
               industry: this.extractIndustryFromText(item.title || item.name),
-              location: this.extractLocationFromText(item.title || item.name),
+              location: this.extractLocationFromAddress(item.title || item.name),
               website_url: item.url || null,
               has_website: !!item.url,
               overall_score: 0,

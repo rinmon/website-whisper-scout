@@ -9,6 +9,7 @@ import { useBusinessData } from "@/hooks/useBusinessData";
 import DashboardLayout from "@/components/DashboardLayout";
 import JapanMap from "@/components/JapanMap";
 import EStatApiConfig from "@/components/EStatApiConfig";
+import DataSourceSelector from "@/components/DataSourceSelector";
 import type { ProgressCallback } from "@/services/businessDataService";
 
 const DataSources = () => {
@@ -27,11 +28,11 @@ const DataSources = () => {
 
   // データソースグループの定義
   const dataSourceGroups = [
-    { value: 'all', label: '全データソース', description: '全国47都道府県の全データソース' },
-    { value: 'chamber', label: '商工会議所のみ', description: '全国の商工会議所データ' },
-    { value: 'github', label: 'GitHub組織のみ', description: 'テック企業のGitHub組織データ' },
-    { value: 'estat', label: 'e-Stat APIのみ', description: '政府統計データ' },
-    { value: 'priority', label: '優先度高(1-10)', description: '優先度の高いデータソースのみ' }
+    { value: 'all', label: '全データソース' },
+    { value: 'chamber', label: '商工会議所' },
+    { value: 'github', label: 'GitHub組織' },
+    { value: 'estat', label: 'e-Stat API' },
+    { value: 'priority', label: '優先度高' }
   ];
 
   // バックグラウンド処理の状況を定期的に更新
@@ -116,6 +117,13 @@ const DataSources = () => {
   };
 
   const getSelectedGroupLabel = () => {
+    const dataSourceGroups = [
+      { value: 'all', label: '全データソース' },
+      { value: 'chamber', label: '商工会議所' },
+      { value: 'github', label: 'GitHub組織' },
+      { value: 'estat', label: 'e-Stat API' },
+      { value: 'priority', label: '優先度高' }
+    ];
     const group = dataSourceGroups.find(g => g.value === selectedDataSourceGroup);
     return group ? group.label : '全データソース';
   };
@@ -217,47 +225,15 @@ const DataSources = () => {
               全国47都道府県のデータソース設定と取得状況
             </p>
           </div>
-          <div className="flex gap-2 items-center">
-            {/* データソースグループ選択 */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">取得対象</label>
-              <select
-                value={selectedDataSourceGroup}
-                onChange={(e) => setSelectedDataSourceGroup(e.target.value)}
-                className="px-3 py-1 text-sm border rounded-md bg-background"
-                disabled={isRunning}
-              >
-                {dataSourceGroups.map((group) => (
-                  <option key={group.value} value={group.value}>
-                    {group.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button onClick={handleFullDataFetch} disabled={isRunning}>
-              {isRunning ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-2 h-4 w-4" />
-              )}
-              {isRunning ? '取得中...' : getSelectedGroupLabel() + '取得'}
-            </Button>
-          </div>
         </div>
 
-        {/* 選択されたグループの説明 */}
-        {selectedDataSourceGroup !== 'all' && (
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="pt-4">
-              <div className="flex items-center">
-                <Database className="mr-2 h-4 w-4 text-blue-600" />
-                <span className="text-sm text-blue-800">
-                  {dataSourceGroups.find(g => g.value === selectedDataSourceGroup)?.description}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* 改善されたデータソース選択UI */}
+        <DataSourceSelector
+          selectedGroup={selectedDataSourceGroup}
+          onGroupSelect={setSelectedDataSourceGroup}
+          onStartFetch={handleFullDataFetch}
+          isRunning={isRunning}
+        />
 
         {/* 日本地図セクション */}
         <JapanMap

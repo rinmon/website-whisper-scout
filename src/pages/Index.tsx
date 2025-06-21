@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +32,16 @@ const Index = () => {
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",
     });
+  };
+
+  // 手動データ取得の結果を処理
+  const handleDataFetched = (newData: Business[]) => {
+    toast({
+      title: "データ取得完了",
+      description: `${newData.length}社の企業データを取得しました`,
+    });
+    // データが更新されたのでリフレッシュ
+    refreshData();
   };
 
   useEffect(() => {
@@ -122,7 +131,7 @@ const Index = () => {
         </div>
 
         {/* データソース状況 */}
-        <DataSourceStatus onRefresh={refreshData} />
+        <DataSourceStatus onRefresh={refreshData} onDataFetched={handleDataFetched} />
 
         {/* 統計概要 */}
         <StatsOverview businesses={filteredBusinesses} />

@@ -15,6 +15,7 @@ export const useBusinessData = () => {
   } = useQuery({
     queryKey: ['businesses', refreshTrigger],
     queryFn: async () => {
+      // 基本的なデータ取得（進捗なし）
       const data = await BusinessDataService.fetchFromOpenSources();
       return BusinessDataService.normalizeBusinessData(data);
     },
@@ -34,6 +35,12 @@ export const useBusinessData = () => {
     return await BusinessDataService.fetchIndustryAssociationData(industry);
   };
 
+  // 進捗付きデータ取得用のフック
+  const fetchWithProgress = async (onProgress?: (status: string, current: number, total: number) => void) => {
+    const data = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
+    return BusinessDataService.normalizeBusinessData(data);
+  };
+
   return {
     businesses,
     isLoading,
@@ -41,6 +48,7 @@ export const useBusinessData = () => {
     refreshData,
     fetchByRegion,
     fetchByIndustry,
+    fetchWithProgress,
     refetch
   };
 };

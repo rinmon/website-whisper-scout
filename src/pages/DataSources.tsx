@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +106,7 @@ const DataSources = () => {
 
       // データストレージに保存
       const { DataStorageService } = await import('@/services/dataStorageService');
-      DataStorageService.addBusinesses(businesses);
+      DataStorageService.addBusinessData(businesses);
       
       const endTime = Date.now();
       const duration = Math.round((endTime - startTime) / 1000);

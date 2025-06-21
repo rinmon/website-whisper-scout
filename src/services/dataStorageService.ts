@@ -1,4 +1,3 @@
-
 import { Business } from '@/types/business';
 
 export class DataStorageService {
@@ -71,6 +70,11 @@ export class DataStorageService {
     console.log(`  - 総計: ${finalData.length}社`);
     
     return finalData;
+  }
+
+  // 企業データの一括追加（新しいメソッド）
+  static addBusinesses(businesses: Business[]): Business[] {
+    return this.addBusinessData(businesses);
   }
 
   // 企業識別キーの生成（より厳密に）

@@ -1,4 +1,3 @@
-
 import { Business } from '@/types/business';
 
 export class DataStorageService {
@@ -197,45 +196,94 @@ export class DataStorageService {
     return stats;
   }
 
-  // データを完全削除（強化版）
+  // データを完全削除（強化版 - GitHub組織検索対応）
   static clearAllData(): void {
     try {
-      // ローカルストレージから削除
+      console.log('🗑️ 全データ削除を開始...');
+      
+      // 1. メインデータを削除
       localStorage.removeItem(this.STORAGE_KEY);
       localStorage.removeItem(this.LAST_UPDATED_KEY);
       
-      // 関連するキャッシュも削除
-      const keysToRemove = [];
+      // 2. 関連するキャッシュを全て削除（パターンマッチング強化）
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('business') || key.includes('github') || key.includes('sample'))) {
+        if (key && this.shouldRemoveKey(key)) {
           keysToRemove.push(key);
         }
       }
       
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
-        console.log(`🗑️ 削除: ${key}`);
+        console.log(`🗑️ ローカルストレージ削除: ${key}`);
       });
       
-      // セッションストレージも確認して削除
+      // 3. セッションストレージも完全削除
       if (typeof sessionStorage !== 'undefined') {
-        const sessionKeysToRemove = [];
+        const sessionKeysToRemove: string[] = [];
         for (let i = 0; i < sessionStorage.length; i++) {
           const key = sessionStorage.key(i);
-          if (key && (key.includes('business') || key.includes('github') || key.includes('sample'))) {
+          if (key && this.shouldRemoveKey(key)) {
             sessionKeysToRemove.push(key);
           }
         }
         sessionKeysToRemove.forEach(key => {
           sessionStorage.removeItem(key);
-          console.log(`🗑️ セッション削除: ${key}`);
+          console.log(`🗑️ セッションストレージ削除: ${key}`);
         });
       }
       
-      console.log('✅ 蓄積データを完全削除しました');
+      // 4. メモリ内のキャッシュもクリア
+      this.clearMemoryCache();
+      
+      console.log(`✅ 全データ削除完了 (${keysToRemove.length + (sessionKeysToRemove?.length || 0)}個のキー削除)`);
     } catch (error) {
       console.error('データ削除エラー:', error);
+    }
+  }
+
+  // 削除対象キーの判定を強化
+  private static shouldRemoveKey(key: string): boolean {
+    const patterns = [
+      'business',
+      'github',
+      'sample',
+      'accumulated',
+      'data_last_updated',
+      'query-cache',
+      'react-query',
+      'tanstack-query',
+      'organization',
+      'company',
+      'prefecture',
+      'region',
+      'industry',
+      'score',
+      'analysis',
+      'cache'
+    ];
+    
+    const lowerKey = key.toLowerCase();
+    return patterns.some(pattern => lowerKey.includes(pattern));
+  }
+
+  // メモリ内キャッシュのクリア
+  private static clearMemoryCache(): void {
+    // ブラウザのメモリキャッシュをクリア
+    if (typeof window !== 'undefined') {
+      // React Query/TanStack Queryのキャッシュクリア
+      const queryClient = (window as any).queryClient;
+      if (queryClient && typeof queryClient.clear === 'function') {
+        queryClient.clear();
+        console.log('🧹 React Queryキャッシュクリア');
+      }
+      
+      // カスタムキャッシュがあればクリア
+      if ((window as any).businessDataCache) {
+        delete (window as any).businessDataCache;
+        console.log('🧹 ビジネスデータキャッシュクリア');
+      }
     }
   }
 
@@ -319,5 +367,26 @@ export class DataStorageService {
     });
     
     return result;
+  }
+
+  // GitHub組織検索データの特定削除
+  static removeGitHubOrganizationData(): Business[] {
+    console.log('🗑️ GitHub組織検索データを削除中...');
+    return this.removeBusinessesByCondition(business => 
+      business.name.includes('GitHub') ||
+      business.data_source === 'github' ||
+      business.data_source === 'github_search' ||
+      business.description?.includes('GitHub') ||
+      business.website_url?.includes('github.com') ||
+      business.location.includes('GitHub組織検索')
+    );
+  }
+
+  // 特定データソースの削除
+  static removeByDataSource(dataSource: string): Business[] {
+    console.log(`🗑️ データソース「${dataSource}」のデータを削除中...`);
+    return this.removeBusinessesByCondition(business => 
+      business.data_source === dataSource
+    );
   }
 }

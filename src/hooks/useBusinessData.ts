@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Business } from '@/types/business';
@@ -139,6 +138,18 @@ export const useBusinessData = () => {
     console.log('✅ 全データ削除完了');
   };
 
+  // GitHub組織検索データの削除
+  const removeGitHubData = () => {
+    DataStorageService.removeGitHubOrganizationData();
+    refreshData();
+  };
+
+  // 特定データソースの削除
+  const removeByDataSource = (dataSource: string) => {
+    DataStorageService.removeByDataSource(dataSource);
+    refreshData();
+  };
+
   // サンプルデータ削除機能を追加
   const removeSampleData = () => {
     DataStorageService.removeSampleData();
@@ -165,7 +176,9 @@ export const useBusinessData = () => {
     stopBackgroundFetch,
     clearAllData,
     removeSampleData,
-    removeBusinessesByCondition
+    removeBusinessesByCondition,
+    removeGitHubData,
+    removeByDataSource
   };
 };
 

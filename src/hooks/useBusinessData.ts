@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Business } from '@/types/business';
@@ -73,10 +74,6 @@ export const useBusinessData = () => {
 
   const fetchByRegion = async (region: string) => {
     return await BusinessDataService.fetchChamberOfCommerceData(region);
-  };
-
-  const fetchByIndustry = async (industry: string) => {
-    return await BusinessDataService.fetchIndustryAssociationData(industry);
   };
 
   // 進捗付きデータ取得用のフック（全国対応版）
@@ -167,7 +164,6 @@ export const useBusinessData = () => {
     error,
     refreshData,
     fetchByRegion,
-    fetchByIndustry,
     fetchWithProgress,
     refetch,
     getDataStats,

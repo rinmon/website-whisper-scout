@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Business } from '@/types/business';
@@ -25,7 +26,7 @@ export const useBusinessData = () => {
       
       // 蓄積データがない場合のみ新規取得
       console.log('蓄積データなし、新規取得を開始');
-      return await BusinessDataService.fetchFromOpenSources();
+      return await BusinessDataService.fetchFromOpenSourcesWithProgress();
     },
     staleTime: 1000 * 60 * 10, // 10分間キャッシュ
     gcTime: 1000 * 60 * 30, // 30分間ガベージコレクション
@@ -58,7 +59,13 @@ export const useBusinessData = () => {
 
   // データ削除機能
   const clearAllData = () => {
-    DataStorageService.clearAllData();
+    BusinessDataService.clearAllData();
+    refreshData();
+  };
+
+  // サンプルデータ削除機能を追加
+  const removeSampleData = () => {
+    BusinessDataService.removeSampleData();
     refreshData();
   };
 
@@ -78,6 +85,7 @@ export const useBusinessData = () => {
     refetch,
     getDataStats,
     clearAllData,
+    removeSampleData, // 新しく追加
     removeBusinessesByCondition
   };
 };

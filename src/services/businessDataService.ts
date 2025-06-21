@@ -63,7 +63,7 @@ const REAL_DATA_SOURCES: DataSourceConfig[] = [
     name: 'GitHub組織検索（IT企業限定）',
     url: 'https://api.github.com/search/users?q=type:org+location:japan',
     type: 'api',
-    enabled: true,
+    enabled: false, // 無効化してサンプルデータを除外
     corsProxy: false,
     description: 'IT企業・技術系組織（補完用）',
     priority: 10
@@ -129,9 +129,10 @@ export class BusinessDataService {
             console.log(`${source.name}: 未対応の形式`);
         }
         
-        // 日本企業のフィルタリング強化
+        // 日本企業のフィルタリング強化、サンプルデータを除外
         const filteredData = sourceData.filter(business => 
-          this.isJapaneseCompany(business)
+          this.isJapaneseCompany(business.name, business.location) && 
+          !this.isSampleData(business.name)
         );
         
         if (filteredData.length > 0) {
@@ -159,6 +160,19 @@ export class BusinessDataService {
     console.log(`🎉 新規取得${newBusinesses.length}社、総蓄積${accumulatedData.length}社`);
     
     return accumulatedData;
+  }
+
+  // サンプルデータ判定メソッドを追加
+  private static isSampleData(name: string): boolean {
+    const samplePatterns = [
+      'サンプル', 'テスト', 'デモ', 'モック', 'sample', 'test', 'demo', 'mock',
+      'example', '例', 'ダミー', 'dummy'
+    ];
+    
+    const nameLower = name.toLowerCase();
+    return samplePatterns.some(pattern => 
+      nameLower.includes(pattern) || name.includes(pattern)
+    );
   }
 
   // 著名企業データの生成
@@ -213,31 +227,12 @@ export class BusinessDataService {
     return (hasJapanese || hasJapanesePattern || isInJapan);
   }
 
-  // スクレイピングデータ取得（模擬実装）
+  // スクレイピングデータ取得（模擬実装）- サンプルデータを除去
   private static async fetchScrapingData(source: DataSourceConfig): Promise<Business[]> {
     console.log(`🔍 ${source.name}からスクレイピング開始...`);
     
-    // 実際のスクレイピングの代わりに、日本企業らしいデータを生成
-    const mockJapaneseCompanies = [
-      '株式会社サンプル商事', '有限会社テスト工業', '合同会社デモシステム',
-      '株式会社モック製作所', '有限会社サンプル設計', '株式会社テスト販売'
-    ];
-    
-    return mockJapaneseCompanies.map((name, index) => ({
-      id: Date.now() + index + Math.random() * 1000,
-      name,
-      industry: this.extractIndustryFromText(name),
-      location: this.getRandomJapaneseLocation(),
-      website_url: `https://www.${name.replace(/[株式会社有限]/g, '').toLowerCase()}.co.jp`,
-      has_website: true,
-      overall_score: Math.floor(Math.random() * 40) + 40,
-      technical_score: Math.floor(Math.random() * 50) + 30,
-      eeat_score: Math.floor(Math.random() * 60) + 20,
-      content_score: Math.floor(Math.random() * 50) + 25,
-      ai_content_score: Math.floor(Math.random() * 30) + 10,
-      description: `${source.name}からの実データ（模擬）`,
-      last_analyzed: new Date().toISOString().split('T')[0]
-    }));
+    // 実際のスクレイピングの代わりに、著名企業データのみ返す
+    return [];
   }
 
   // 日本の都道府県からランダム選択
@@ -655,6 +650,19 @@ export class BusinessDataService {
     }
     
     return accumulatedData;
+  }
+
+  // データをクリアする新しいメソッド
+  static clearAllData(): void {
+    DataStorageService.clearAllData();
+    console.log('全データを削除しました');
+  }
+
+  // サンプルデータのみを削除するメソッド
+  static removeSampleData(): Business[] {
+    return DataStorageService.removeBusinessesByCondition(business => 
+      this.isSampleData(business.name)
+    );
   }
 
   // 企業データの正規化・重複排除（DataStorageServiceに委譲）

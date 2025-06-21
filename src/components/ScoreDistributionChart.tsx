@@ -49,14 +49,16 @@ const getSafeMax = (numbers: number[], fallback: number = 1): number => {
   return Number.isFinite(max) && !Number.isNaN(max) && max > 0 ? max : fallback;
 };
 
-// 安全なdomain計算関数
-const getSafeDomain = (value: number, multiplier: number = 1.1): number => {
+// 安全なdomain計算関数 - より保守的なアプローチ
+const getSafeDomain = (value: number): [number, number] => {
   if (!Number.isFinite(value) || Number.isNaN(value) || value <= 0) {
-    return 5;
+    return [0, 5];
   }
   
-  const calculated = Math.ceil(value * multiplier);
-  return Number.isFinite(calculated) && !Number.isNaN(calculated) && calculated > 0 ? calculated : 5;
+  const upperBound = Math.ceil(value * 1.2);
+  const safeBound = Number.isFinite(upperBound) && !Number.isNaN(upperBound) && upperBound > 0 ? upperBound : 5;
+  
+  return [0, Math.max(safeBound, 1)];
 };
 
 // データ配列を完全にサニタイズする関数
@@ -74,7 +76,7 @@ const sanitizeChartData = (data: any[]): any[] => {
   }).filter(item => {
     // データに有効な数値が含まれている場合のみ含める
     return Object.values(item).some(value => 
-      typeof value === 'number' && Number.isFinite(value) && !Number.isNaN(value) && value > 0
+      typeof value === 'number' && Number.isFinite(value) && !Number.isNaN(value) && value >= 0
     );
   });
 };
@@ -192,12 +194,12 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     );
   }
 
-  // 安全にdomain値を計算
+  // 安全にdomain値を計算 - 固定された配列形式で返す
   const maxCount = getSafeMax(safeDistributionData.map(d => d.count), 1);
   const maxAverage = getSafeMax(safeIndustryData.map(d => d.average), 1);
   
-  const countDomain = getSafeDomain(maxCount, 1.1);
-  const averageDomain = getSafeDomain(maxAverage, 1.1);
+  const countDomain = getSafeDomain(maxCount);
+  const averageDomain = getSafeDomain(maxAverage);
 
   console.log("Final chart values:", { 
     maxCount, 
@@ -230,7 +232,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"
-                    domain={[0, countDomain]}
+                    domain={countDomain}
                     allowDecimals={false}
                     type="number"
                   />
@@ -266,7 +268,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                 <BarChart data={safeIndustryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
                   <XAxis 
                     type="number"
-                    domain={[0, averageDomain]}
+                    domain={averageDomain}
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"

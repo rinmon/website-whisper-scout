@@ -1,12 +1,22 @@
 
 import { Business } from '@/types/business';
 
+// データソースの型定義を追加
+interface DataSourceConfig {
+  name: string;
+  url: string;
+  type: 'csv' | 'json' | 'api' | 'scrape' | 'mock' | 'document' | 'catalog';
+  enabled: boolean;
+  corsProxy: boolean;
+  description: string;
+}
+
 // 実際にアクセス可能なデータソース（CORS対応済み）
-const REAL_DATA_SOURCES = [
+const REAL_DATA_SOURCES: DataSourceConfig[] = [
   {
     name: 'OpenCorporates Japan API',
     url: 'https://api.opencorporates.com/v0.4/companies/search?jurisdiction_code=jp&format=json',
-    type: 'api' as const,
+    type: 'api',
     enabled: true,
     corsProxy: false,
     description: '世界最大の企業データベース - 日本企業情報'
@@ -14,7 +24,7 @@ const REAL_DATA_SOURCES = [
   {
     name: 'Companies House API (UK)',
     url: 'https://api.company-information.service.gov.uk/search/companies',
-    type: 'api' as const,
+    type: 'api',
     enabled: true,
     corsProxy: false,
     description: 'イギリス企業登記所API（参考用）'
@@ -22,7 +32,7 @@ const REAL_DATA_SOURCES = [
   {
     name: '総務省統計局 e-Stat API',
     url: 'https://api.e-stat.go.jp/rest/3.0/app/json/getSimpleDataset',
-    type: 'api' as const,
+    type: 'api',
     enabled: true,
     corsProxy: false,
     description: '政府統計API（APIキー不要の公開データ）'
@@ -30,7 +40,7 @@ const REAL_DATA_SOURCES = [
   {
     name: 'Yahoo Finance API',
     url: 'https://query1.finance.yahoo.com/v1/finance/search',
-    type: 'api' as const,
+    type: 'api',
     enabled: true,
     corsProxy: false,
     description: '上場企業情報（Yahoo Finance）'
@@ -38,7 +48,7 @@ const REAL_DATA_SOURCES = [
   {
     name: '法人番号公表サイト（CORS回避）',
     url: 'https://www.houjin-bangou.nta.go.jp/download/zenken/',
-    type: 'csv' as const,
+    type: 'csv',
     enabled: true,
     corsProxy: true,
     description: '総務省法人番号データ（プロキシ経由）'
@@ -46,7 +56,7 @@ const REAL_DATA_SOURCES = [
   {
     name: 'GitHub企業一覧',
     url: 'https://api.github.com/search/users?q=type:org+location:japan',
-    type: 'api' as const,
+    type: 'api',
     enabled: true,
     corsProxy: false,
     description: 'GitHubに登録された日本の組織'
@@ -252,7 +262,7 @@ export class BusinessDataService {
   }
 
   // CORS回避プロキシを使用したCSV取得
-  private static async fetchCSVWithProxy(source: any): Promise<Business[]> {
+  private static async fetchCSVWithProxy(source: DataSourceConfig): Promise<Business[]> {
     const proxyServices = [
       'https://cors-anywhere.herokuapp.com/',
       'https://api.allorigins.win/get?url=',
@@ -305,7 +315,7 @@ export class BusinessDataService {
   }
 
   // 実際のAPIデータ取得（改善版）
-  private static async fetchRealAPIData(source: any): Promise<Business[]> {
+  private static async fetchRealAPIData(source: DataSourceConfig): Promise<Business[]> {
     console.log(`🔗 ${source.name}に接続中...`);
     
     try {
@@ -341,7 +351,7 @@ export class BusinessDataService {
   }
 
   // 実際のCSVデータ取得
-  private static async fetchRealCSVData(source: any): Promise<Business[]> {
+  private static async fetchRealCSVData(source: DataSourceConfig): Promise<Business[]> {
     console.log(`📊 ${source.name}からCSV取得開始`);
     
     try {
@@ -582,7 +592,7 @@ export class BusinessDataService {
   }
 
   // 利用可能なデータソース一覧を取得
-  static getAvailableDataSources() {
+  static getAvailableDataSources(): DataSourceConfig[] {
     return REAL_DATA_SOURCES;
   }
 

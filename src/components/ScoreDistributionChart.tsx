@@ -23,19 +23,35 @@ interface ScoreDistributionChartProps {
 
 // 完全にセーフな数値サニタイズ関数
 const sanitizeNumber = (value: any): number => {
+  // null, undefined, 空文字列をチェック
   if (value === null || value === undefined || value === "" || 
       (typeof value === "string" && value.trim() === "")) {
     return 0;
   }
   
+  // 数値に変換
   const num = Number(value);
+  
+  // NaN、無限大をチェック
   if (!Number.isFinite(num) || Number.isNaN(num)) {
     return 0;
   }
   
   // 0-5の範囲でクランプし、小数点以下2桁に制限
   const clamped = Math.max(0, Math.min(5, num));
-  return Math.round(clamped * 100) / 100;
+  const rounded = Math.round(clamped * 100) / 100;
+  
+  // 最終確認：結果が有限数であることを保証
+  return Number.isFinite(rounded) ? rounded : 0;
+};
+
+// 配列から安全に最大値を取得する関数
+const getSafeMax = (numbers: number[], fallback: number = 1): number => {
+  const validNumbers = numbers.filter(n => Number.isFinite(n) && !Number.isNaN(n));
+  if (validNumbers.length === 0) return fallback;
+  
+  const max = Math.max(...validNumbers);
+  return Number.isFinite(max) && !Number.isNaN(max) ? max : fallback;
 };
 
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
@@ -148,9 +164,11 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     );
   }
 
-  // 最大値を計算してチャートの範囲を決定
-  const maxCount = Math.max(...distributionData.map(d => d.count), 1);
-  const maxAverage = Math.max(...industryData.map(d => d.average), 1);
+  // 最大値を安全に計算
+  const maxCount = getSafeMax(distributionData.map(d => d.count), 1);
+  const maxAverage = getSafeMax(industryData.map(d => d.average), 1);
+
+  console.log("Chart max values:", { maxCount, maxAverage });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -173,8 +191,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
-                  domain={[0, maxCount]}
+                  domain={[0, Math.ceil(maxCount)]}
                   allowDecimals={false}
+                  type="number"
                 />
                 <ChartTooltip 
                   content={<ChartTooltipContent />}
@@ -203,7 +222,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                 <BarChart data={industryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
                   <XAxis 
                     type="number"
-                    domain={[0, Math.ceil(maxAverage)]}
+                    domain={[0, Math.ceil(maxAverage * 1.1)]}
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"

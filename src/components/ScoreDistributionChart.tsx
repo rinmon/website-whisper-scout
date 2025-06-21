@@ -67,6 +67,18 @@ const safeMax = (values: number[], fallback: number = 1): number => {
   return sanitizeNumber(max, fallback);
 };
 
+// 安全な軸設定関数
+const getSafeAxisConfig = (maxValue: number) => {
+  const sanitizedMax = sanitizeNumber(maxValue, 1);
+  const domainMax = Math.max(1, sanitizedMax + 1);
+  const tickCount = Math.max(2, Math.min(6, Math.floor(domainMax) + 1));
+  
+  return {
+    domain: [0, domainMax],
+    tickCount: tickCount
+  };
+};
+
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart received businesses:", businesses);
 
@@ -187,10 +199,10 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     );
   }
 
-  // 軸の最大値を安全に計算
+  // 軸の安全な設定を計算
   const countValues = distributionData.map(d => d.count);
   const maxCount = safeMax(countValues, 1);
-  const yAxisMax = sanitizeNumber(maxCount + 1, 2);
+  const yAxisConfig = getSafeAxisConfig(maxCount);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -215,10 +227,10 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
-                  domain={[0, yAxisMax]}
+                  domain={yAxisConfig.domain}
                   type="number"
                   allowDecimals={false}
-                  tickCount={Math.max(2, Math.min(6, yAxisMax + 1))}
+                  tickCount={yAxisConfig.tickCount}
                 />
                 <ChartTooltip 
                   content={<ChartTooltipContent />}

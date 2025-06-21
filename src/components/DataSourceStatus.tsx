@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play } from "lucide-react";
+import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
+import { useBusinessData } from "@/hooks/useBusinessData";
 import type { ProgressCallback } from "@/services/businessDataService";
 
 interface DataSourceStatusProps {
@@ -19,7 +20,9 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
   const [currentStatus, setCurrentStatus] = useState('');
   const [fetchResults, setFetchResults] = useState<{ total: number; time: string } | null>(null);
   
+  const { clearAllData, removeSampleData, getDataStats } = useBusinessData();
   const dataSources = BusinessDataService.getAvailableDataSources();
+  const dataStats = getDataStats();
 
   const handleManualFetch = async () => {
     if (isRunning) return;
@@ -69,6 +72,22 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
     }
   };
 
+  const handleClearAllData = () => {
+    if (confirm('すべての蓄積データを削除しますか？この操作は取り消せません。')) {
+      clearAllData();
+      setCurrentStatus('すべてのデータを削除しました');
+      setTimeout(() => setCurrentStatus(''), 2000);
+    }
+  };
+
+  const handleRemoveSampleData = () => {
+    if (confirm('サンプルデータのみを削除しますか？')) {
+      removeSampleData();
+      setCurrentStatus('サンプルデータを削除しました');
+      setTimeout(() => setCurrentStatus(''), 2000);
+    }
+  };
+
   const getStatusIcon = (type: string, enabled: boolean = true) => {
     if (!enabled) return <Clock className="h-4 w-4 text-gray-400" />;
     
@@ -108,7 +127,9 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
               <Database className="mr-2 h-5 w-5" />
               データソース状況
             </CardTitle>
-            <CardDescription>企業データの取得元と状況</CardDescription>
+            <CardDescription>
+              企業データの取得元と状況 • 蓄積データ: {dataStats.totalCount}社
+            </CardDescription>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -123,6 +144,24 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
                 <Play className="mr-2 h-4 w-4" />
               )}
               {isRunning ? '取得中...' : '手動取得'}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRemoveSampleData}
+              disabled={isRunning}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              サンプル削除
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handleClearAllData}
+              disabled={isRunning}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              全削除
             </Button>
             <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRunning}>
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -146,6 +185,18 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
               <p className="text-xs text-blue-800 mt-1">
                 {progress.toFixed(0)}% 完了
               </p>
+            </div>
+          )}
+
+          {/* 状況メッセージ表示 */}
+          {currentStatus && !isRunning && (
+            <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
+              <div className="flex items-center">
+                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                <span className="text-sm font-medium text-green-900">
+                  {currentStatus}
+                </span>
+              </div>
             </div>
           )}
 
@@ -177,15 +228,15 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
             </div>
           ))}
           
-          <div className="mt-4 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
+          <div className="mt-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
             <div className="flex items-center">
-              <AlertCircle className="h-4 w-4 text-yellow-600 mr-2" />
-              <span className="text-sm font-medium text-yellow-900">
+              <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+              <span className="text-sm font-medium text-green-900">
                 実装状況
               </span>
             </div>
-            <p className="text-xs text-yellow-800 mt-1">
-              現在は模擬データで動作テスト中。実際のデータソース接続は段階的に実装予定
+            <p className="text-xs text-green-800 mt-1">
+              日本企業データの取得・蓄積・フィルタリング機能を実装済み。著名企業データで動作確認中
             </p>
           </div>
         </div>

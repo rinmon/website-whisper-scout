@@ -253,10 +253,19 @@ const Index = () => {
                         {getAIContentBadge(business.ai_content_score)}
                       </div>
 
-                      {/* ウェブサイトURL */}
-                      <div className="text-sm text-blue-600 truncate">
-                        {business.website_url}
-                      </div>
+                      {/* ウェブサイトURL - クリック可能なリンクに修正 */}
+                      {business.website_url && (
+                        <div className="text-sm">
+                          <a 
+                            href={business.website_url.startsWith('http') ? business.website_url : `https://${business.website_url}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline truncate block"
+                          >
+                            {business.website_url}
+                          </a>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="text-center py-4">

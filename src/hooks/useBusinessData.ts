@@ -19,20 +19,27 @@ export const useBusinessData = () => {
       // 蓄積されたデータを優先的に返す
       const accumulatedData = DataStorageService.getAccumulatedData();
       
+      console.log(`🔍 蓄積データ確認: ${accumulatedData.length}社`);
+      
       if (accumulatedData.length > 0) {
-        console.log(`蓄積データ ${accumulatedData.length}社を返します`);
+        console.log(`📋 蓄積データ ${accumulatedData.length}社を返します`);
+        // データの内容をログ出力して確認
+        accumulatedData.forEach((business, index) => {
+          console.log(`${index + 1}. ${business.name} - ${business.website_url || 'URLなし'}`);
+        });
         return accumulatedData;
       }
       
       // 蓄積データがない場合のみ新規取得
-      console.log('蓄積データなし、新規取得を開始');
+      console.log('❌ 蓄積データなし、新規取得を開始');
       return await BusinessDataService.fetchFromOpenSourcesWithProgress();
     },
-    staleTime: 1000 * 60 * 10, // 10分間キャッシュ
-    gcTime: 1000 * 60 * 30, // 30分間ガベージコレクション
+    staleTime: 0, // キャッシュを無効化
+    gcTime: 0, // ガベージコレクションも即座に
   });
 
   const refreshData = () => {
+    console.log('🔄 データリフレッシュを実行');
     setRefreshTrigger(prev => prev + 1);
   };
 
@@ -59,7 +66,9 @@ export const useBusinessData = () => {
 
   // データ削除機能
   const clearAllData = () => {
+    console.log('🗑️ 全データ削除を実行');
     BusinessDataService.clearAllData();
+    DataStorageService.clearAllData(); // ストレージからも削除
     refreshData();
   };
 
@@ -85,7 +94,7 @@ export const useBusinessData = () => {
     refetch,
     getDataStats,
     clearAllData,
-    removeSampleData, // 新しく追加
+    removeSampleData,
     removeBusinessesByCondition
   };
 };

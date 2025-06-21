@@ -23,45 +23,60 @@ interface ScoreDistributionChartProps {
 
 // 完全にセーフな数値サニタイズ関数
 const sanitizeNumber = (value: any): number => {
-  // null, undefined, 空文字列をチェック
   if (value === null || value === undefined || value === "" || 
       (typeof value === "string" && value.trim() === "")) {
     return 0;
   }
   
-  // 数値に変換
   const num = Number(value);
   
-  // NaN、無限大をチェック
   if (!Number.isFinite(num) || Number.isNaN(num)) {
     return 0;
   }
   
-  // 0-5の範囲でクランプし、小数点以下2桁に制限
   const clamped = Math.max(0, Math.min(5, num));
   const rounded = Math.round(clamped * 100) / 100;
   
-  // 最終確認：結果が有限数であることを保証
   return Number.isFinite(rounded) ? rounded : 0;
 };
 
 // 配列から安全に最大値を取得する関数
 const getSafeMax = (numbers: number[], fallback: number = 1): number => {
-  const validNumbers = numbers.filter(n => Number.isFinite(n) && !Number.isNaN(n));
+  const validNumbers = numbers.filter(n => Number.isFinite(n) && !Number.isNaN(n) && n > 0);
   if (validNumbers.length === 0) return fallback;
   
   const max = Math.max(...validNumbers);
-  return Number.isFinite(max) && !Number.isNaN(max) ? max : fallback;
+  return Number.isFinite(max) && !Number.isNaN(max) && max > 0 ? max : fallback;
 };
 
 // 安全なdomain計算関数
 const getSafeDomain = (value: number, multiplier: number = 1.1): number => {
   if (!Number.isFinite(value) || Number.isNaN(value) || value <= 0) {
-    return 5; // デフォルト値
+    return 5;
   }
   
   const calculated = Math.ceil(value * multiplier);
-  return Number.isFinite(calculated) && !Number.isNaN(calculated) ? calculated : 5;
+  return Number.isFinite(calculated) && !Number.isNaN(calculated) && calculated > 0 ? calculated : 5;
+};
+
+// データ配列を完全にサニタイズする関数
+const sanitizeChartData = (data: any[]): any[] => {
+  return data.map(item => {
+    const sanitizedItem: any = {};
+    for (const [key, value] of Object.entries(item)) {
+      if (typeof value === 'number') {
+        sanitizedItem[key] = Number.isFinite(value) && !Number.isNaN(value) ? value : 0;
+      } else {
+        sanitizedItem[key] = value;
+      }
+    }
+    return sanitizedItem;
+  }).filter(item => {
+    // データに有効な数値が含まれている場合のみ含める
+    return Object.values(item).some(value => 
+      typeof value === 'number' && Number.isFinite(value) && !Number.isNaN(value) && value > 0
+    );
+  });
 };
 
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
@@ -101,11 +116,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     
     return {
       range: range.range,
-      count: Math.max(0, count) // 確実に0以上
+      count: Math.max(0, count)
     };
   });
-
-  console.log("Distribution data:", distributionData);
 
   // 業界平均の計算
   const industryGroups = businessesWithWebsite.reduce((acc, business) => {
@@ -126,12 +139,17 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     .filter(([_, data]) => data.count > 0)
     .map(([industry, data]) => ({
       industry,
-      average: sanitizeNumber(data.total / data.count) // サニタイズして確実に有限数
+      average: sanitizeNumber(data.total / data.count)
     }))
     .filter(item => item.average > 0)
     .sort((a, b) => b.average - a.average);
 
-  console.log("Industry data:", industryData);
+  // チャートデータを完全にサニタイズ
+  const safeDistributionData = sanitizeChartData(distributionData);
+  const safeIndustryData = sanitizeChartData(industryData);
+
+  console.log("Safe distribution data:", safeDistributionData);
+  console.log("Safe industry data:", safeIndustryData);
 
   const chartConfig = {
     count: {
@@ -145,7 +163,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   };
 
   // データが存在しない場合
-  if (!businessesWithWebsite.length) {
+  if (!businessesWithWebsite.length || safeDistributionData.length === 0) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
@@ -175,20 +193,19 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   }
 
   // 安全にdomain値を計算
-  const maxCount = getSafeMax(distributionData.map(d => d.count), 1);
-  const maxAverage = getSafeMax(industryData.map(d => d.average), 1);
+  const maxCount = getSafeMax(safeDistributionData.map(d => d.count), 1);
+  const maxAverage = getSafeMax(safeIndustryData.map(d => d.average), 1);
   
-  // domain値を完全に安全に計算
   const countDomain = getSafeDomain(maxCount, 1.1);
   const averageDomain = getSafeDomain(maxAverage, 1.1);
 
-  console.log("Chart values:", { 
+  console.log("Final chart values:", { 
     maxCount, 
     maxAverage, 
     countDomain, 
     averageDomain,
-    distributionData: distributionData.map(d => d.count),
-    industryData: industryData.map(d => d.average)
+    safeDistributionDataLength: safeDistributionData.length,
+    safeIndustryDataLength: safeIndustryData.length
   });
 
   return (
@@ -199,35 +216,41 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           <CardDescription>サイト保有企業の品質スコア分布</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig}>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={distributionData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <XAxis 
-                  dataKey="range" 
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <YAxis 
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                  domain={[0, countDomain]}
-                  allowDecimals={false}
-                  type="number"
-                />
-                <ChartTooltip 
-                  content={<ChartTooltipContent />}
-                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-                />
-                <Bar 
-                  dataKey="count" 
-                  radius={[4, 4, 0, 0]}
-                  fill="var(--color-count)"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+          {safeDistributionData.length > 0 ? (
+            <ChartContainer config={chartConfig}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={safeDistributionData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <XAxis 
+                    dataKey="range" 
+                    tickLine={false}
+                    axisLine={false}
+                    className="text-xs"
+                  />
+                  <YAxis 
+                    tickLine={false}
+                    axisLine={false}
+                    className="text-xs"
+                    domain={[0, countDomain]}
+                    allowDecimals={false}
+                    type="number"
+                  />
+                  <ChartTooltip 
+                    content={<ChartTooltipContent />}
+                    cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                  />
+                  <Bar 
+                    dataKey="count" 
+                    radius={[4, 4, 0, 0]}
+                    fill="var(--color-count)"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -237,10 +260,10 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           <CardDescription>各業界のウェブサイト品質平均値</CardDescription>
         </CardHeader>
         <CardContent>
-          {industryData.length > 0 ? (
+          {safeIndustryData.length > 0 ? (
             <ChartContainer config={chartConfig}>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={industryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
+                <BarChart data={safeIndustryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
                   <XAxis 
                     type="number"
                     domain={[0, averageDomain]}

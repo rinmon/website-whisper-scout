@@ -1,4 +1,3 @@
-
 import { Business } from '@/types/business';
 import { DataStorageService } from './dataStorageService';
 import { EStatApiService } from './estatApiService';
@@ -1159,6 +1158,116 @@ export class BusinessDataService {
 
     this.backgroundFetchStatus.isRunning = false;
     console.log('✅ 全てのデータソースからのデータ取得完了');
+    return allBusinesses;
+  }
+
+  // グループごとのデータ取得機能を追加
+  static async fetchByGroup(groupType: string, progressCallback?: ProgressCallback): Promise<Business[]> {
+    const allDataSources = this.getAvailableDataSources();
+    let filteredSources: any[] = [];
+
+    // グループタイプに応じてデータソースをフィルタリング
+    switch (groupType) {
+      case 'chamber':
+        filteredSources = allDataSources.filter(source => 
+          source.name.includes('商工会議所') && source.enabled
+        );
+        break;
+      case 'github':
+        filteredSources = allDataSources.filter(source => 
+          source.name.includes('GitHub組織検索') && source.enabled
+        );
+        break;
+      case 'estat':
+        filteredSources = allDataSources.filter(source => 
+          source.name.includes('e-Stat API') && source.enabled
+        );
+        break;
+      case 'priority':
+        filteredSources = allDataSources.filter(source => 
+          source.priority <= 10 && source.enabled
+        );
+        break;
+      default:
+        filteredSources = allDataSources.filter(source => source.enabled);
+    }
+
+    const totalSources = filteredSources.length;
+    let completedSources = 0;
+    let allBusinesses: Business[] = [];
+
+    // バックグラウンド処理の状態を初期化
+    this.backgroundFetchStatus = {
+      isRunning: true,
+      completedSources: 0,
+      totalSources: totalSources,
+      lastUpdate: Date.now(),
+      errors: []
+    };
+
+    console.log(`🎯 ${groupType}グループの取得開始: ${totalSources}件のデータソース`);
+
+    // データソースを優先度順にソート
+    const sortedDataSources = filteredSources.sort((a, b) => a.priority - b.priority);
+
+    for (const source of sortedDataSources) {
+      try {
+        let fetchedBusinesses: Business[] = [];
+
+        switch (source.type) {
+          case 'scrape':
+            // 商工会議所データを取得
+            if (source.name.includes('商工会議所')) {
+              const regionMatch = source.description.match(/(.+?)商工会議所/);
+              const region = regionMatch ? regionMatch[1] : source.description.replace('商工会議所', '').trim();
+              fetchedBusinesses = await this.fetchChamberOfCommerceData(region);
+            }
+            break;
+
+          case 'api':
+            // GitHub組織データを取得
+            if (source.name.includes('GitHub組織検索')) {
+              const locationMatch = source.description.match(/(.+?)のテック企業/);
+              const location = locationMatch ? locationMatch[1] : '東京';
+              const maxPages = source.maxPages || 1;
+              const perPage = source.perPage || 100;
+
+              for (let page = 1; page <= maxPages; page++) {
+                const gitHubBusinesses = await this.fetchGitHubOrganizationData(location, page, perPage);
+                fetchedBusinesses = fetchedBusinesses.concat(gitHubBusinesses);
+                
+                progressCallback?.(`GitHub組織検索 (${location}, ページ ${page})`, page, maxPages);
+              }
+            }
+            // e-Stat APIから企業データを取得
+            else if (source.name.includes('e-Stat API')) {
+              const estatBusinesses = await this.fetchEStatCorporateData();
+              fetchedBusinesses = fetchedBusinesses.concat(estatBusinesses);
+            }
+            break;
+
+          default:
+            console.warn(`🚧 未知のデータソースタイプ: ${source.type}`);
+            break;
+        }
+
+        allBusinesses = allBusinesses.concat(fetchedBusinesses);
+        console.log(`✅ ${groupType}グループ - ${source.name} から ${fetchedBusinesses.length}件取得`);
+        progressCallback?.(`データ取得: ${source.name}`, completedSources + 1, totalSources);
+
+      } catch (error: any) {
+        console.error(`❌ ${groupType}グループ - ${source.name} でエラーが発生:`, error);
+        this.backgroundFetchStatus.errors.push(`${source.name}: ${error.message}`);
+      } finally {
+        completedSources++;
+        this.backgroundFetchStatus.completedSources = completedSources;
+        this.backgroundFetchStatus.lastUpdate = Date.now();
+        progressCallback?.(`${groupType}グループ - ${source.name} 完了`, completedSources, totalSources);
+      }
+    }
+
+    this.backgroundFetchStatus.isRunning = false;
+    console.log(`✅ ${groupType}グループの全データソース取得完了: ${allBusinesses.length}件`);
     return allBusinesses;
   }
 

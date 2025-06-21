@@ -18,11 +18,21 @@ const DataSources = () => {
   const [fetchResults, setFetchResults] = useState<{ total: number; time: string } | null>(null);
   const [backgroundStatus, setBackgroundStatus] = useState<any>(null);
   const [selectedPrefectures, setSelectedPrefectures] = useState<string[]>([]);
+  const [selectedDataSourceGroup, setSelectedDataSourceGroup] = useState<string>('all');
   
   const { clearAllData, removeSampleData, removeGitHubData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
   const dataSources = BusinessDataService.getAvailableDataSources();
   const dataStats = getDataStats();
   const prefectureStats = getPrefectureStats();
+
+  // データソースグループの定義
+  const dataSourceGroups = [
+    { value: 'all', label: '全データソース', description: '全国47都道府県の全データソース' },
+    { value: 'chamber', label: '商工会議所のみ', description: '全国の商工会議所データ' },
+    { value: 'github', label: 'GitHub組織のみ', description: 'テック企業のGitHub組織データ' },
+    { value: 'estat', label: 'e-Stat APIのみ', description: '政府統計データ' },
+    { value: 'priority', label: '優先度高(1-10)', description: '優先度の高いデータソースのみ' }
+  ];
 
   // バックグラウンド処理の状況を定期的に更新
   useEffect(() => {
@@ -51,7 +61,7 @@ const DataSources = () => {
     
     setIsRunning(true);
     setProgress(0);
-    setCurrentStatus('全国47都道府県の詳細取得を開始...');
+    setCurrentStatus(`${getSelectedGroupLabel()}の詳細取得を開始...`);
     setFetchResults(null);
     
     const startTime = Date.now();
@@ -62,7 +72,25 @@ const DataSources = () => {
     };
 
     try {
-      const businesses = await BusinessDataService.fetchFromOpenSourcesWithProgress(progressCallback);
+      let businesses;
+      
+      // 選択されたグループに応じて取得方法を変更
+      switch (selectedDataSourceGroup) {
+        case 'chamber':
+          businesses = await BusinessDataService.fetchByGroup('chamber', progressCallback);
+          break;
+        case 'github':
+          businesses = await BusinessDataService.fetchByGroup('github', progressCallback);
+          break;
+        case 'estat':
+          businesses = await BusinessDataService.fetchByGroup('estat', progressCallback);
+          break;
+        case 'priority':
+          businesses = await BusinessDataService.fetchByGroup('priority', progressCallback);
+          break;
+        default:
+          businesses = await BusinessDataService.fetchFromOpenSourcesWithProgress(progressCallback);
+      }
       
       const endTime = Date.now();
       const duration = Math.round((endTime - startTime) / 1000);
@@ -72,7 +100,7 @@ const DataSources = () => {
         time: `${duration}秒`
       });
       
-      setCurrentStatus('全国データ取得完了！継続的バックグラウンド処理中...');
+      setCurrentStatus(`${getSelectedGroupLabel()}取得完了！継続的バックグラウンド処理中...`);
       refreshData();
       
     } catch (error) {
@@ -85,6 +113,11 @@ const DataSources = () => {
         setCurrentStatus('');
       }, 5000);
     }
+  };
+
+  const getSelectedGroupLabel = () => {
+    const group = dataSourceGroups.find(g => g.value === selectedDataSourceGroup);
+    return group ? group.label : '全データソース';
   };
 
   const handleStopBackground = () => {
@@ -184,17 +217,47 @@ const DataSources = () => {
               全国47都道府県のデータソース設定と取得状況
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {/* データソースグループ選択 */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-muted-foreground">取得対象</label>
+              <select
+                value={selectedDataSourceGroup}
+                onChange={(e) => setSelectedDataSourceGroup(e.target.value)}
+                className="px-3 py-1 text-sm border rounded-md bg-background"
+                disabled={isRunning}
+              >
+                {dataSourceGroups.map((group) => (
+                  <option key={group.value} value={group.value}>
+                    {group.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Button onClick={handleFullDataFetch} disabled={isRunning}>
               {isRunning ? (
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Play className="mr-2 h-4 w-4" />
               )}
-              {isRunning ? '取得中...' : '全国一括取得'}
+              {isRunning ? '取得中...' : getSelectedGroupLabel() + '取得'}
             </Button>
           </div>
         </div>
+
+        {/* 選択されたグループの説明 */}
+        {selectedDataSourceGroup !== 'all' && (
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="pt-4">
+              <div className="flex items-center">
+                <Database className="mr-2 h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-800">
+                  {dataSourceGroups.find(g => g.value === selectedDataSourceGroup)?.description}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 日本地図セクション */}
         <JapanMap

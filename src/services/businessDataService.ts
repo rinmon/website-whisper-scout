@@ -82,6 +82,8 @@ export class BusinessDataService {
       
       try {
         console.log(`🔗 ${source.name}に接続中...`);
+        console.log(`📡 リクエストURL: ${source.url}`);
+        
         let sourceData: Business[] = [];
         
         switch (source.type) {
@@ -102,11 +104,20 @@ export class BusinessDataService {
           if (filteredData.length > 0) {
             newBusinesses.push(...filteredData);
             console.log(`✅ ${source.name}から${filteredData.length}社の実データを取得`);
+            console.log(`📋 取得データサンプル:`, filteredData.slice(0, 3).map(b => ({
+              name: b.name,
+              url: b.website_url,
+              location: b.location
+            })));
           }
         }
         
       } catch (error) {
         console.error(`❌ ${source.name}取得エラー:`, error);
+        console.error(`🔍 エラー詳細:`, {
+          message: error instanceof Error ? error.message : String(error),
+          url: source.url
+        });
         // エラーでもプロセスは継続
       }
       
@@ -114,14 +125,20 @@ export class BusinessDataService {
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
+    console.log(`🎯 実データ取得結果: ${newBusinesses.length}社`);
+    
     // 実データが取得できなかった場合、フォールバック用の多様なサンプルデータを生成
     if (newBusinesses.length === 0) {
       console.log('⚠️ 実データ取得失敗、多様なサンプルデータを生成中...');
+      console.log('🚨 APIからのデータ取得に失敗したため、サンプルデータを表示しています');
       onProgress?.('サンプルデータを生成中...', enabledSources.length, enabledSources.length + 1);
       
       const fallbackData = this.generateDiverseSampleData(30); // 30社分のサンプル
       newBusinesses.push(...fallbackData);
       console.log(`📝 ${fallbackData.length}社のサンプルデータを生成`);
+      console.log('💡 これらは実在しない企業のダミーデータです');
+    } else {
+      console.log('🎉 実際の企業データの取得に成功しました！');
     }
     
     onProgress?.('データの蓄積処理中...', enabledSources.length + 1, enabledSources.length + 1);
@@ -245,6 +262,7 @@ export class BusinessDataService {
   private static async fetchRealAPIData(source: DataSourceConfig): Promise<Business[]> {
     try {
       console.log(`🔗 ${source.name}にリクエスト送信...`);
+      console.log(`📡 URL: ${source.url}`);
       
       const response = await fetch(source.url, {
         method: 'GET',
@@ -254,18 +272,43 @@ export class BusinessDataService {
         }
       });
 
+      console.log(`📊 ${source.name} レスポンス状況:`, {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (!response.ok) {
-        console.log(`⚠️ ${source.name}: HTTP ${response.status}`);
+        console.log(`⚠️ ${source.name}: HTTP ${response.status} - ${response.statusText}`);
+        
+        // CORS エラーの可能性をチェック
+        if (response.status === 0 || response.type === 'opaque') {
+          console.log(`🚫 CORS エラーの可能性: ${source.name}`);
+        }
+        
         return [];
       }
 
       const apiData = await response.json();
-      console.log(`📦 ${source.name}からのレスポンス:`, Object.keys(apiData));
+      console.log(`📦 ${source.name}からのレスポンス構造:`, {
+        keys: Object.keys(apiData),
+        dataType: typeof apiData,
+        isArray: Array.isArray(apiData),
+        length: Array.isArray(apiData) ? apiData.length : 'N/A'
+      });
       
       return this.parseAPIResponse(apiData, source.name);
       
     } catch (error) {
       console.error(`❌ ${source.name} APIエラー:`, error);
+      
+      // ネットワークエラーの詳細分析
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error(`🌐 ネットワーク接続エラー: ${source.name}`);
+        console.error(`💡 CORS制限またはネットワーク問題の可能性があります`);
+      }
+      
       return [];
     }
   }

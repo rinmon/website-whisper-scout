@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Business } from '@/types/business';
 import { BusinessDataService } from '@/services/businessDataService';
+import { DataStorageService } from '@/services/dataStorageService';
 
 export const useBusinessData = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -15,9 +16,17 @@ export const useBusinessData = () => {
   } = useQuery({
     queryKey: ['businesses', refreshTrigger],
     queryFn: async () => {
-      // 基本的なデータ取得（進捗なし）
-      const data = await BusinessDataService.fetchFromOpenSources();
-      return BusinessDataService.normalizeBusinessData(data);
+      // 蓄積されたデータを優先的に返す
+      const accumulatedData = BusinessDataService.getAccumulatedBusinessData();
+      
+      if (accumulatedData.length > 0) {
+        console.log(`蓄積データ ${accumulatedData.length}社を返します`);
+        return accumulatedData;
+      }
+      
+      // 蓄積データがない場合のみ新規取得
+      console.log('蓄積データなし、新規取得を開始');
+      return await BusinessDataService.fetchFromOpenSources();
     },
     staleTime: 1000 * 60 * 10, // 10分間キャッシュ
     gcTime: 1000 * 60 * 30, // 30分間ガベージコレクション
@@ -37,8 +46,26 @@ export const useBusinessData = () => {
 
   // 進捗付きデータ取得用のフック
   const fetchWithProgress = async (onProgress?: (status: string, current: number, total: number) => void) => {
-    const data = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
-    return BusinessDataService.normalizeBusinessData(data);
+    const newData = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
+    // データが更新されたのでリフレッシュ
+    refreshData();
+    return newData;
+  };
+
+  // データ統計を取得
+  const getDataStats = () => {
+    return DataStorageService.getDataStats();
+  };
+
+  // データ削除機能
+  const clearAllData = () => {
+    DataStorageService.clearAllData();
+    refreshData();
+  };
+
+  const removeBusinessesByCondition = (condition: (business: Business) => boolean) => {
+    DataStorageService.removeBusinessesByCondition(condition);
+    refreshData();
   };
 
   return {
@@ -49,7 +76,10 @@ export const useBusinessData = () => {
     fetchByRegion,
     fetchByIndustry,
     fetchWithProgress,
-    refetch
+    refetch,
+    getDataStats,
+    clearAllData,
+    removeBusinessesByCondition
   };
 };
 

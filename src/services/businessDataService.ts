@@ -1,5 +1,5 @@
-
 import { Business } from '@/types/business';
+import { DataStorageService } from './dataStorageService';
 
 // データソースの型定義を追加
 interface DataSourceConfig {
@@ -72,7 +72,7 @@ export class BusinessDataService {
     onProgress?: ProgressCallback
   ): Promise<Business[]> {
     const enabledSources = REAL_DATA_SOURCES.filter(source => source.enabled);
-    const allBusinesses: Business[] = [];
+    const newBusinesses: Business[] = [];
     
     onProgress?.('実データ取得を開始...', 0, enabledSources.length);
     
@@ -99,7 +99,7 @@ export class BusinessDataService {
         }
         
         if (sourceData.length > 0) {
-          allBusinesses.push(...sourceData);
+          newBusinesses.push(...sourceData);
           console.log(`✅ ${source.name}から${sourceData.length}社のデータを取得`);
         } else {
           console.log(`⚠️ ${source.name}: データなし`);
@@ -116,13 +116,25 @@ export class BusinessDataService {
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
-    onProgress?.('データの正規化処理中...', enabledSources.length, enabledSources.length);
-    const normalizedData = this.normalizeBusinessData(allBusinesses);
+    onProgress?.('データの蓄積処理中...', enabledSources.length, enabledSources.length);
     
-    onProgress?.('実データ取得完了', enabledSources.length, enabledSources.length);
-    console.log(`🎉 総計${normalizedData.length}社の実企業データを取得完了`);
+    // 新しく取得したデータを蓄積（重複排除含む）
+    const accumulatedData = DataStorageService.addBusinessData(newBusinesses);
     
-    return normalizedData;
+    onProgress?.('データ蓄積完了', enabledSources.length, enabledSources.length);
+    console.log(`🎉 新規取得${newBusinesses.length}社、総蓄積${accumulatedData.length}社`);
+    
+    return accumulatedData;
+  }
+
+  // 蓄積されたデータを取得
+  static getAccumulatedBusinessData(): Business[] {
+    return DataStorageService.getAccumulatedData();
+  }
+
+  // データ統計を取得
+  static getDataStatistics() {
+    return DataStorageService.getDataStats();
   }
 
   // OpenCorporates APIからの取得
@@ -561,34 +573,21 @@ export class BusinessDataService {
     return prefectures[Math.floor(Math.random() * prefectures.length)];
   }
 
-  // 旧メソッド（互換性のため）
+  // 旧メソッド（互換性のため）- 蓄積データを返すように変更
   static async fetchFromOpenSources(): Promise<Business[]> {
-    return this.fetchFromOpenSourcesWithProgress();
+    const accumulatedData = DataStorageService.getAccumulatedData();
+    
+    // 蓄積データがない場合のみ新規取得
+    if (accumulatedData.length === 0) {
+      return this.fetchFromOpenSourcesWithProgress();
+    }
+    
+    return accumulatedData;
   }
 
-  // 企業データの正規化・重複排除
+  // 企業データの正規化・重複排除（DataStorageServiceに委譲）
   static normalizeBusinessData(businesses: Business[]): Business[] {
-    const seen = new Set<string>();
-    const normalized: Business[] = [];
-
-    businesses.forEach(business => {
-      const normalizedName = business.name
-        .replace(/株式会社|㈱/g, '(株)')
-        .replace(/有限会社|㈲/g, '(有)')
-        .trim();
-
-      const key = `${normalizedName}-${business.location}`;
-      
-      if (!seen.has(key)) {
-        seen.add(key);
-        normalized.push({
-          ...business,
-          name: normalizedName
-        });
-      }
-    });
-
-    return normalized;
+    return DataStorageService.addBusinessData(businesses);
   }
 
   // 利用可能なデータソース一覧を取得

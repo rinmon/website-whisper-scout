@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2 } from "lucide-react";
+import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import type { ProgressCallback } from "@/services/businessDataService";
@@ -28,7 +28,7 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
     
     setIsRunning(true);
     setProgress(0);
-    setCurrentStatus('データ取得を開始...');
+    setCurrentStatus('改善されたデータ取得を開始...');
     setFetchResults(null);
     
     const startTime = Date.now();
@@ -51,12 +51,10 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
       
       setCurrentStatus('データ取得完了！');
       
-      // 親コンポーネントに結果を通知
       if (onDataFetched) {
         onDataFetched(businesses);
       }
       
-      // 既存のリフレッシュ機能も呼び出し
       onRefresh();
       
     } catch (error) {
@@ -77,10 +75,33 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
       try {
         await clearAllData();
         setCurrentStatus('すべてのデータを削除しました');
-        onRefresh(); // 画面を更新
+        onRefresh();
       } catch (error) {
         console.error('データ削除エラー:', error);
         setCurrentStatus('データ削除に失敗しました');
+      }
+      setTimeout(() => setCurrentStatus(''), 2000);
+    }
+  };
+
+  const handleClearUrlHistory = () => {
+    if (confirm('URL履歴をクリアしますか？次回取得時に全URLを再取得します。')) {
+      BusinessDataService.clearUrlHistory();
+      setCurrentStatus('URL履歴をクリアしました');
+      setTimeout(() => setCurrentStatus(''), 2000);
+    }
+  };
+
+  const handleRemoveSampleData = () => {
+    if (confirm('サンプルデータのみを削除しますか？')) {
+      setCurrentStatus('サンプルデータを削除中...');
+      try {
+        removeSampleData();
+        setCurrentStatus('サンプルデータを削除しました');
+        onRefresh();
+      } catch (error) {
+        console.error('サンプルデータ削除エラー:', error);
+        setCurrentStatus('サンプルデータ削除に失敗しました');
       }
       setTimeout(() => setCurrentStatus(''), 2000);
     }
@@ -129,7 +150,7 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
               企業データの取得元と状況 • 蓄積データ: {dataStats.totalCount}社
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               variant="outline" 
               size="sm" 
@@ -144,6 +165,24 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
               {isRunning ? '取得中...' : '手動取得'}
             </Button>
             <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRemoveSampleData}
+              disabled={isRunning}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              サンプル削除
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleClearUrlHistory}
+              disabled={isRunning}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              履歴クリア
+            </Button>
+            <Button 
               variant="destructive" 
               size="sm" 
               onClick={handleClearAllData}
@@ -151,10 +190,6 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
             >
               <Trash2 className="mr-2 h-4 w-4" />
               全削除
-            </Button>
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRunning}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              更新
             </Button>
           </div>
         </div>

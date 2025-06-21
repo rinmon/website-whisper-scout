@@ -4,8 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
-import { ArrowLeft, ExternalLink, Globe, Shield, Zap, FileText } from "lucide-react";
+import ScoreHistoryChart from "@/components/ScoreHistoryChart";
+import ImprovementRecommendations from "@/components/ImprovementRecommendations";
+import TechnicalDetails from "@/components/TechnicalDetails";
+import CompetitorComparison from "@/components/CompetitorComparison";
+import { ArrowLeft, ExternalLink, Globe, Shield, Zap, FileText, TrendingUp, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -59,6 +64,14 @@ const mockBusinesses = [
     employees: "100-200名",
     description: "最新技術を活用したサービス開発企業。高品質なウェブサイトを運営。"
   }
+];
+
+// モック履歴データ
+const mockHistoryData = [
+  { date: "2024-01", overall_score: 1.8, technical_score: 1.5, eeat_score: 2.2, content_score: 1.6 },
+  { date: "2024-02", overall_score: 1.9, technical_score: 1.6, eeat_score: 2.3, content_score: 1.7 },
+  { date: "2024-03", overall_score: 2.0, technical_score: 1.7, eeat_score: 2.4, content_score: 1.8 },
+  { date: "2024-04", overall_score: 2.1, technical_score: 1.8, eeat_score: 2.5, content_score: 1.9 },
 ];
 
 const BusinessDetail = () => {
@@ -131,7 +144,7 @@ const BusinessDetail = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* 左側: 企業基本情報 */}
           <div className="lg:col-span-1 space-y-6">
             <Card>
@@ -167,100 +180,133 @@ const BusinessDetail = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 総合スコア（サイドバーに移動） */}
+            {business.has_website && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Zap className="mr-2 h-5 w-5" />
+                    総合スコア
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <div className={`text-3xl font-bold ${getScoreColor(business.overall_score)}`}>
+                      {business.overall_score.toFixed(1)}
+                    </div>
+                    <div className="text-sm text-gray-600">/ 5.0</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {/* 右側: 分析結果 */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* 右側: タブ形式の詳細情報 */}
+          <div className="lg:col-span-3">
             {business.has_website ? (
-              <>
-                {/* 総合スコア */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Zap className="mr-2 h-5 w-5" />
-                      総合分析結果
-                    </CardTitle>
-                    <CardDescription>ウェブサイトの品質を多角的に評価</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center mb-6">
-                      <div className={`text-4xl font-bold ${getScoreColor(business.overall_score)}`}>
-                        {business.overall_score.toFixed(1)}
-                      </div>
-                      <div className="text-sm text-gray-600">/ 5.0</div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <Tabs defaultValue="overview" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-5">
+                  <TabsTrigger value="overview">概要</TabsTrigger>
+                  <TabsTrigger value="history">履歴</TabsTrigger>
+                  <TabsTrigger value="technical">技術詳細</TabsTrigger>
+                  <TabsTrigger value="improvements">改善提案</TabsTrigger>
+                  <TabsTrigger value="competition">競合比較</TabsTrigger>
+                </TabsList>
 
-                {/* 詳細スコア */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Shield className="mr-2 h-5 w-5" />
-                      詳細スコア
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">技術力スコア</span>
-                        <span className={`text-sm font-bold ${getScoreColor(business.technical_score)}`}>
-                          {business.technical_score.toFixed(1)}
-                        </span>
+                <TabsContent value="overview" className="space-y-6">
+                  {/* 詳細スコア */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Shield className="mr-2 h-5 w-5" />
+                        詳細スコア
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium">技術力スコア</span>
+                          <span className={`text-sm font-bold ${getScoreColor(business.technical_score)}`}>
+                            {business.technical_score.toFixed(1)}
+                          </span>
+                        </div>
+                        <Progress value={business.technical_score * 20} className="h-3" />
+                        <p className="text-xs text-gray-600 mt-1">
+                          サイト速度、モバイル対応、セキュリティなどの技術的品質
+                        </p>
                       </div>
-                      <Progress value={business.technical_score * 20} className="h-3" />
-                      <p className="text-xs text-gray-600 mt-1">
-                        サイト速度、モバイル対応、セキュリティなどの技術的品質
+
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium">信頼性 (E-E-A-T)</span>
+                          <span className={`text-sm font-bold ${getScoreColor(business.eeat_score)}`}>
+                            {business.eeat_score.toFixed(1)}
+                          </span>
+                        </div>
+                        <Progress value={business.eeat_score * 20} className="h-3" />
+                        <p className="text-xs text-gray-600 mt-1">
+                          専門性、権威性、信頼性の評価
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium">コンテンツ品質</span>
+                          <span className={`text-sm font-bold ${getScoreColor(business.content_score)}`}>
+                            {business.content_score.toFixed(1)}
+                          </span>
+                        </div>
+                        <Progress value={business.content_score * 20} className="h-3" />
+                        <p className="text-xs text-gray-600 mt-1">
+                          情報の充実度、読みやすさ、有用性
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* AI分析結果 */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <FileText className="mr-2 h-5 w-5" />
+                        AI分析結果
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">コンテンツ判定:</span>
+                        {getAIContentBadge(business.ai_content_score)}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">
+                        AIによるコンテンツ生成の可能性: {((business.ai_content_score || 0) * 100).toFixed(0)}%
                       </p>
-                    </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">信頼性 (E-E-A-T)</span>
-                        <span className={`text-sm font-bold ${getScoreColor(business.eeat_score)}`}>
-                          {business.eeat_score.toFixed(1)}
-                        </span>
-                      </div>
-                      <Progress value={business.eeat_score * 20} className="h-3" />
-                      <p className="text-xs text-gray-600 mt-1">
-                        専門性、権威性、信頼性の評価
-                      </p>
-                    </div>
+                <TabsContent value="history">
+                  <ScoreHistoryChart data={mockHistoryData} />
+                </TabsContent>
 
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">コンテンツ品質</span>
-                        <span className={`text-sm font-bold ${getScoreColor(business.content_score)}`}>
-                          {business.content_score.toFixed(1)}
-                        </span>
-                      </div>
-                      <Progress value={business.content_score * 20} className="h-3" />
-                      <p className="text-xs text-gray-600 mt-1">
-                        情報の充実度、読みやすさ、有用性
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <TabsContent value="technical">
+                  <TechnicalDetails businessId={business.id} />
+                </TabsContent>
 
-                {/* AI分析結果 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <FileText className="mr-2 h-5 w-5" />
-                      AI分析結果
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">コンテンツ判定:</span>
-                      {getAIContentBadge(business.ai_content_score)}
-                    </div>
-                    <p className="text-xs text-gray-600 mt-2">
-                      AIによるコンテンツ生成の可能性: {((business.ai_content_score || 0) * 100).toFixed(0)}%
-                    </p>
-                  </CardContent>
-                </Card>
-              </>
+                <TabsContent value="improvements">
+                  <ImprovementRecommendations businessScore={business.overall_score} />
+                </TabsContent>
+
+                <TabsContent value="competition">
+                  <CompetitorComparison 
+                    currentBusiness={{
+                      name: business.name,
+                      overall_score: business.overall_score,
+                      industry: business.industry
+                    }}
+                  />
+                </TabsContent>
+              </Tabs>
             ) : (
               <Card>
                 <CardContent className="text-center py-12">

@@ -92,55 +92,39 @@ const EStatApiConfig = () => {
           </AlertDescription>
         </Alert>
 
-        {/* 設定フォーム */}
-        {!isConfigured && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="estat-appid">アプリケーションID</Label>
-              <Input
-                id="estat-appid"
-                type="text"
-                placeholder="e-StatのアプリケーションIDを入力"
-                value={appId}
-                onChange={(e) => setAppId(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
-            
-            <div className="flex space-x-2">
-              <Button 
-                onClick={handleTestAndSave}
-                disabled={isLoading || !appId.trim()}
-                className="flex-1"
-              >
-                {isLoading ? '設定中...' : 'テスト & 保存'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => window.open('https://www.e-stat.go.jp/api/api-info/api-guide', '_blank')}
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                登録ページ
-              </Button>
-            </div>
+        {/* 設定フォーム - 必ず表示 */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="estat-appid">アプリケーションID</Label>
+            <Input
+              id="estat-appid"
+              type="text"
+              placeholder="e-StatのアプリケーションIDを入力"
+              value={appId}
+              onChange={(e) => setAppId(e.target.value)}
+              disabled={isLoading}
+            />
           </div>
-        )}
+          
+          <div className="flex space-x-2">
+            <Button 
+              onClick={handleTestAndSave}
+              disabled={isLoading || !appId.trim()}
+              className="flex-1"
+            >
+              {isLoading ? '設定中...' : 'テスト & 保存'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.open('https://www.e-stat.go.jp/api/api-info/api-guide', '_blank')}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              登録ページ
+            </Button>
+          </div>
 
-        {/* 設定済みの場合 */}
-        {isConfigured && (
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                <span className="text-sm font-medium text-green-800">
-                  e-Stat APIが設定されています
-                </span>
-              </div>
-              <p className="text-xs text-green-700 mt-1">
-                政府統計データから企業情報を取得できます
-              </p>
-            </div>
-            
+          {/* 設定済みの場合のリセットボタン */}
+          {isConfigured && (
             <Button
               variant="outline"
               onClick={handleReset}
@@ -148,8 +132,8 @@ const EStatApiConfig = () => {
             >
               設定をリセット
             </Button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* テスト結果 */}
         {testResult && (

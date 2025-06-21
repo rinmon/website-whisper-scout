@@ -13,58 +13,7 @@ import CompetitorComparison from "@/components/CompetitorComparison";
 import { ArrowLeft, ExternalLink, Globe, Shield, Zap, FileText, TrendingUp, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-
-// モックデータ（Index.tsxと同じデータを使用）
-const mockBusinesses = [
-  {
-    id: 1,
-    name: "株式会社サンプル",
-    industry: "IT",
-    location: "東京都",
-    website_url: "https://sample.co.jp",
-    has_website: true,
-    overall_score: 2.1,
-    technical_score: 1.8,
-    eeat_score: 2.5,
-    content_score: 1.9,
-    ai_content_score: 0.85,
-    founded: "2010年",
-    employees: "50-100名",
-    description: "ウェブ開発・システム開発を手がけるIT企業。主にBtoBソリューションを提供。"
-  },
-  {
-    id: 2,
-    name: "テスト商事株式会社",
-    industry: "商業",
-    location: "大阪府",
-    website_url: null,
-    has_website: false,
-    overall_score: 0,
-    technical_score: 0,
-    eeat_score: 0,
-    content_score: 0,
-    ai_content_score: null,
-    founded: "1985年",
-    employees: "20-50名",
-    description: "伝統的な商社業務を手がける老舗企業。デジタル化が急務。"
-  },
-  {
-    id: 3,
-    name: "モダン技術株式会社",
-    industry: "IT",
-    location: "東京都",
-    website_url: "https://modern-tech.jp",
-    has_website: true,
-    overall_score: 4.2,
-    technical_score: 4.5,
-    eeat_score: 3.8,
-    content_score: 4.3,
-    ai_content_score: 0.15,
-    founded: "2018年",
-    employees: "100-200名",
-    description: "最新技術を活用したサービス開発企業。高品質なウェブサイトを運営。"
-  }
-];
+import { useBusinessData } from "@/hooks/useBusinessData";
 
 // モック履歴データ
 const mockHistoryData = [
@@ -79,17 +28,19 @@ const BusinessDetail = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { logout } = useAuth();
+  const { businesses } = useBusinessData();
   
-  const business = mockBusinesses.find(b => b.id === parseInt(id || "0"));
+  // 蓄積された実際のデータから企業を検索
+  const business = businesses.find(b => b.id === parseInt(id || "0"));
 
   if (!business) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">企業が見つかりません</h1>
-          <Button onClick={() => navigate("/")}>
+          <Button onClick={() => navigate("/businesses")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            ホームに戻る
+            企業一覧に戻る
           </Button>
         </div>
       </DashboardLayout>
@@ -125,9 +76,9 @@ const BusinessDetail = () => {
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={() => navigate("/")}>
+            <Button variant="outline" onClick={() => navigate("/businesses")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              戻る
+              企業一覧に戻る
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{business.name}</h1>

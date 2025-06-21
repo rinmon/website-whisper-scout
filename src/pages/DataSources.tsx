@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +7,8 @@ import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, Rot
 import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import DashboardLayout from "@/components/DashboardLayout";
+import JapanMap from "@/components/JapanMap";
+import EStatApiConfig from "@/components/EStatApiConfig";
 import type { ProgressCallback } from "@/services/businessDataService";
 
 const DataSources = () => {
@@ -16,10 +17,12 @@ const DataSources = () => {
   const [currentStatus, setCurrentStatus] = useState('');
   const [fetchResults, setFetchResults] = useState<{ total: number; time: string } | null>(null);
   const [backgroundStatus, setBackgroundStatus] = useState<any>(null);
+  const [selectedPrefectures, setSelectedPrefectures] = useState<string[]>([]);
   
-  const { clearAllData, removeSampleData, getDataStats, refreshData } = useBusinessData();
+  const { clearAllData, removeSampleData, removeGitHubData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
   const dataSources = BusinessDataService.getAvailableDataSources();
   const dataStats = getDataStats();
+  const prefectureStats = getPrefectureStats();
 
   // バックグラウンド処理の状況を定期的に更新
   useEffect(() => {
@@ -33,6 +36,15 @@ const DataSources = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 都道府県選択ハンドラー
+  const handlePrefectureSelect = (prefecture: string) => {
+    setSelectedPrefectures(prev => 
+      prev.includes(prefecture) 
+        ? prev.filter(p => p !== prefecture)
+        : [...prev, prefecture]
+    );
+  };
 
   const handleFullDataFetch = async () => {
     if (isRunning) return;
@@ -111,6 +123,21 @@ const DataSources = () => {
     }
   };
 
+  const handleRemoveGitHubData = () => {
+    if (confirm('GitHub組織検索で取得したサンプルデータを削除しますか？')) {
+      setCurrentStatus('GitHubサンプルデータを削除中...');
+      try {
+        removeGitHubData();
+        setCurrentStatus('GitHubサンプルデータを削除しました');
+        refreshData();
+      } catch (error) {
+        console.error('GitHubデータ削除エラー:', error);
+        setCurrentStatus('GitHubデータ削除に失敗しました');
+      }
+      setTimeout(() => setCurrentStatus(''), 2000);
+    }
+  };
+
   const getStatusIcon = (type: string, enabled: boolean = true) => {
     if (!enabled) return <Clock className="h-4 w-4 text-gray-400" />;
     
@@ -168,6 +195,18 @@ const DataSources = () => {
             </Button>
           </div>
         </div>
+
+        {/* 日本地図セクション */}
+        <JapanMap
+          selectedPrefectures={selectedPrefectures}
+          onPrefectureSelect={handlePrefectureSelect}
+          businessData={Object.fromEntries(
+            Object.entries(prefectureStats).map(([pref, stats]) => [pref, stats.total])
+          )}
+        />
+
+        {/* e-Stat API設定 */}
+        <EStatApiConfig />
 
         {/* 進捗とステータス */}
         <Card>
@@ -238,6 +277,15 @@ const DataSources = () => {
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 サンプル削除
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRemoveGitHubData}
+                disabled={isRunning}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                GitHub削除
               </Button>
               <Button 
                 variant="destructive" 

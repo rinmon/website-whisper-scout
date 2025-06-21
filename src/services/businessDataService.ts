@@ -180,16 +180,13 @@ export class BusinessDataService {
     }));
   }
 
-  // 日本企業判定の強化
-  private static isJapaneseCompany(business: Business): boolean {
-    const name = business.name.toLowerCase();
-    const location = business.location.toLowerCase();
+  // 日本企業判定の強化（名前と場所のみで判定するように修正）
+  private static isJapaneseCompany(name: string, location: string): boolean {
+    const nameLower = name.toLowerCase();
+    const locationLower = location.toLowerCase();
     
     // 英語のみの企業名を除外
-    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(business.name);
-    
-    // GitHub URLを除外
-    const hasGitHubUrl = business.website_url?.includes('github.com') || false;
+    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(name);
     
     // 日本的な企業名パターン
     const japanesePatterns = [
@@ -199,7 +196,7 @@ export class BusinessDataService {
     ];
     
     const hasJapanesePattern = japanesePatterns.some(pattern => 
-      business.name.includes(pattern)
+      name.includes(pattern)
     );
     
     // 日本の都道府県
@@ -209,11 +206,11 @@ export class BusinessDataService {
     ];
     
     const isInJapan = japanesePrefectures.some(pref => 
-      location.includes(pref) || business.location.includes(pref)
+      locationLower.includes(pref) || location.includes(pref)
     );
     
     // 日本企業と判定する条件
-    return (hasJapanese || hasJapanesePattern || isInJapan) && !hasGitHubUrl;
+    return (hasJapanese || hasJapanesePattern || isInJapan);
   }
 
   // スクレイピングデータ取得（模擬実装）
@@ -376,7 +373,7 @@ export class BusinessDataService {
       
       if (data.quotes) {
         return data.quotes
-          .filter((quote: any) => this.isJapaneseCompany({ name: quote.longname || quote.shortname || '', location: '日本' }))
+          .filter((quote: any) => this.isJapaneseCompany(quote.longname || quote.shortname || '', '日本'))
           .map((quote: any, index: number) => ({
             id: Date.now() + index,
             name: quote.longname || quote.shortname || `企業${index + 1}`,

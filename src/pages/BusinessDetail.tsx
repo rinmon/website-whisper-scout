@@ -45,7 +45,7 @@ const BusinessDetail = () => {
         </div>
       </DashboardLayout>
     );
-  }
+  };
 
   const handleLogout = () => {
     logout();
@@ -109,11 +109,11 @@ const BusinessDetail = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">設立年:</span>
-                    <span className="text-sm font-medium">{business.founded}</span>
+                    <span className="text-sm font-medium">{business.established_year || '不明'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">従業員数:</span>
-                    <span className="text-sm font-medium">{business.employees}</span>
+                    <span className="text-sm font-medium">{business.employee_count || '不明'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">業界:</span>

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -243,7 +244,7 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
                 {getStatusIcon(source.type, source.enabled)}
                 <div>
                   <div className="font-medium">{source.name}</div>
-                  <div className="text-sm text-muted-foreground">{source.url}</div>
+                  <div className="text-sm text-muted-foreground">{source.baseUrl}</div>
                 </div>
               </div>
               <div className="flex items-center space-x-2">

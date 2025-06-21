@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Business } from '@/types/business';
@@ -17,7 +16,7 @@ export const useBusinessData = () => {
     queryKey: ['businesses', refreshTrigger],
     queryFn: async () => {
       // 蓄積されたデータを優先的に返す
-      const accumulatedData = BusinessDataService.getAccumulatedBusinessData();
+      const accumulatedData = DataStorageService.getAccumulatedData();
       
       if (accumulatedData.length > 0) {
         console.log(`蓄積データ ${accumulatedData.length}社を返します`);

@@ -212,10 +212,27 @@ const Index = () => {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <CardTitle className="text-lg">{business.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{business.name}</CardTitle>
+                      {business.is_new && (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                          NEW
+                        </Badge>
+                      )}
+                    </div>
                     <CardDescription>
                       {business.industry} • {business.location}
                     </CardDescription>
+                    {business.data_source && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        データ元: {business.data_source}
+                      </div>
+                    )}
+                    {business.last_analyzed && (
+                      <div className="text-xs text-muted-foreground">
+                        分析日: {business.last_analyzed}
+                      </div>
+                    )}
                   </div>
                   <Badge variant={getScoreBadgeVariant(business.overall_score)}>
                     {business.has_website ? business.overall_score.toFixed(1) : "サイトなし"}

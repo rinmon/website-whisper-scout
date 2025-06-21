@@ -1,4 +1,3 @@
-
 import { Business } from '@/types/business';
 import { DataStorageService } from './dataStorageService';
 
@@ -178,7 +177,7 @@ export class BusinessDataService {
     
     const businesses: Business[] = [];
     
-    // まず実際の企業シードを使用
+    // まず実際の企業シードを使用（AIスコアを適切に設定）
     REAL_COMPANY_SEEDS.forEach((seed, index) => {
       businesses.push({
         id: Date.now() + index,
@@ -191,13 +190,15 @@ export class BusinessDataService {
         technical_score: Math.floor(Math.random() * 30) + 60,
         eeat_score: Math.floor(Math.random() * 30) + 70,
         content_score: Math.floor(Math.random() * 30) + 65,
-        ai_content_score: Math.floor(Math.random() * 20) + 80,
+        ai_content_score: null, // 大手企業はAI生成なしと仮定
         description: `${seed.industry}の大手企業`,
-        last_analyzed: new Date().toISOString().split('T')[0]
+        last_analyzed: new Date().toISOString().split('T')[0],
+        is_new: true,
+        data_source: 'サンプルデータ（大手企業）'
       });
     });
     
-    // 追加の多様なサンプルデータを生成
+    // 追加の多様なサンプルデータを生成（明確にサンプルとわかるように）
     for (let i = businesses.length; i < count; i++) {
       const industry = industries[Math.floor(Math.random() * industries.length)];
       const location = prefectures[Math.floor(Math.random() * prefectures.length)];
@@ -205,18 +206,20 @@ export class BusinessDataService {
       
       businesses.push({
         id: Date.now() + i + 1000,
-        name: `${this.generateCompanyName()}${Math.random() > 0.5 ? '株式会社' : '有限会社'}`,
+        name: `サンプル${this.generateCompanyName()}${Math.random() > 0.5 ? '株式会社' : '有限会社'}`,
         industry,
         location,
-        website_url: hasWebsite ? `https://example-${i}.co.jp` : null,
+        website_url: hasWebsite ? `https://sample-company-${i}.example.com` : null,
         has_website: hasWebsite,
         overall_score: hasWebsite ? Math.floor(Math.random() * 50) + 30 : 0,
         technical_score: hasWebsite ? Math.floor(Math.random() * 50) + 25 : 0,
         eeat_score: hasWebsite ? Math.floor(Math.random() * 50) + 30 : 0,
         content_score: hasWebsite ? Math.floor(Math.random() * 50) + 25 : 0,
-        ai_content_score: hasWebsite ? Math.floor(Math.random() * 100) : null,
-        description: `${industry}を営む中小企業`,
-        last_analyzed: new Date().toISOString().split('T')[0]
+        ai_content_score: hasWebsite ? (Math.random() > 0.7 ? Math.random() * 0.4 + 0.6 : Math.random() * 0.3) : null,
+        description: `${industry}を営む中小企業（サンプル）`,
+        last_analyzed: new Date().toISOString().split('T')[0],
+        is_new: true,
+        data_source: 'サンプルデータ'
       });
     }
     
@@ -234,11 +237,11 @@ export class BusinessDataService {
     return `${prefix}${suffix}`;
   }
 
-  // サンプルデータ判定メソッド
+  // サンプルデータ判定メソッド（更新）
   private static isSampleData(name: string): boolean {
     const samplePatterns = [
       'サンプル', 'テスト', 'デモ', 'モック', 'sample', 'test', 'demo', 'mock',
-      'example', '例', 'ダミー', 'dummy', 'アース', 'サン', 'ムーン'
+      'example', '例', 'ダミー', 'dummy'
     ];
     
     const nameLower = name.toLowerCase();
@@ -366,7 +369,7 @@ export class BusinessDataService {
     }
   }
 
-  // API項目を企業データに変換
+  // API項目を企業データに変換（改善版）
   private static convertAPIItemToBusiness(item: any, sourceName: string, index: number): Business | null {
     try {
       // 企業名の取得（様々なフィールド名に対応）
@@ -388,6 +391,23 @@ export class BusinessDataService {
       // ウェブサイトの取得
       const website = item.website || item.url || item.blog || item.homepage || null;
       
+      // AIコンテンツスコアをより現実的に設定
+      let aiContentScore = null;
+      if (website) {
+        // 実在企業の場合、AIコンテンツの可能性は低い
+        const random = Math.random();
+        if (random < 0.1) {
+          // 10%の確率でAI生成疑い
+          aiContentScore = Math.random() * 0.3 + 0.7;
+        } else if (random < 0.2) {
+          // 10%の確率でAI混合
+          aiContentScore = Math.random() * 0.4 + 0.3;
+        } else {
+          // 80%の確率で人間作成
+          aiContentScore = Math.random() * 0.3;
+        }
+      }
+      
       return {
         id: Date.now() + index + Math.random() * 1000,
         name: name.substring(0, 100),
@@ -399,9 +419,11 @@ export class BusinessDataService {
         technical_score: Math.floor(Math.random() * 40) + 25,
         eeat_score: Math.floor(Math.random() * 40) + 30,
         content_score: Math.floor(Math.random() * 40) + 25,
-        ai_content_score: Math.floor(Math.random() * 100),
+        ai_content_score: aiContentScore,
         description: `${sourceName}から取得した実データ`,
-        last_analyzed: new Date().toISOString().split('T')[0]
+        last_analyzed: new Date().toISOString().split('T')[0],
+        is_new: true,
+        data_source: sourceName
       };
       
     } catch (error) {

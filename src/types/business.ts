@@ -1,4 +1,3 @@
-
 export interface Business {
   id: number;
   name: string;
@@ -18,6 +17,8 @@ export interface Business {
   capital?: string;
   description?: string;
   last_analyzed?: string;
+  is_new?: boolean; // 新規追加フラグ
+  data_source?: string; // データソース情報
 }
 
 export interface BusinessAnalysis {

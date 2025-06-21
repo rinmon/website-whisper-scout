@@ -1,3 +1,4 @@
+
 import { Business } from '@/types/business';
 import { DataStorageService } from './dataStorageService';
 
@@ -15,31 +16,49 @@ interface DataSourceConfig {
 // 実際の日本企業データを取得できるソース（優先度順）
 const REAL_DATA_SOURCES: DataSourceConfig[] = [
   {
-    name: '政府統計e-Stat 事業所・企業統計調査',
-    url: 'https://www.e-stat.go.jp/api/1.0/json/getStatsList?cdArea=00000&cdCat01=00&statsField=02',
+    name: 'GitHub組織検索（IT企業限定）- ページ1',
+    url: 'https://api.github.com/search/users?q=type:org+location:japan&per_page=100&page=1',
     type: 'api',
     enabled: true,
     corsProxy: false,
-    description: '日本政府の公式企業統計データ',
+    description: 'IT企業・技術系組織 ページ1',
     priority: 1
   },
   {
-    name: 'Yahoo!ファイナンス 上場企業API',
-    url: 'https://query1.finance.yahoo.com/v1/finance/search?q=japan&quotesCount=50&newsCount=0',
+    name: 'GitHub組織検索（IT企業限定）- ページ2',
+    url: 'https://api.github.com/search/users?q=type:org+location:japan&per_page=100&page=2',
     type: 'api',
     enabled: true,
     corsProxy: false,
-    description: '日本の上場企業情報',
+    description: 'IT企業・技術系組織 ページ2',
     priority: 2
   },
   {
-    name: 'GitHub組織検索（IT企業限定）',
-    url: 'https://api.github.com/search/users?q=type:org+location:japan&per_page=30',
+    name: 'GitHub組織検索（IT企業限定）- ページ3',
+    url: 'https://api.github.com/search/users?q=type:org+location:japan&per_page=100&page=3',
     type: 'api',
     enabled: true,
     corsProxy: false,
-    description: 'IT企業・技術系組織',
+    description: 'IT企業・技術系組織 ページ3',
     priority: 3
+  },
+  {
+    name: 'GitHub組織検索（大企業）',
+    url: 'https://api.github.com/search/users?q=type:org+location:tokyo&per_page=100',
+    type: 'api',
+    enabled: true,
+    corsProxy: false,
+    description: '東京の大企業・組織',
+    priority: 4
+  },
+  {
+    name: 'GitHub組織検索（関西企業）',
+    url: 'https://api.github.com/search/users?q=type:org+location:osaka&per_page=100',
+    type: 'api',
+    enabled: true,
+    corsProxy: false,
+    description: '大阪の企業・組織',
+    priority: 5
   }
 ];
 
@@ -121,21 +140,22 @@ export class BusinessDataService {
         // エラーでもプロセスは継続
       }
       
-      // API制限対策で待機
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // API制限対策で待機（短縮して高速化）
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     console.log(`🎯 実データ取得結果: ${newBusinesses.length}社`);
     
     // 実データが取得できなかった場合、フォールバック用の多様なサンプルデータを生成
-    if (newBusinesses.length === 0) {
-      console.log('⚠️ 実データ取得失敗、多様なサンプルデータを生成中...');
-      console.log('🚨 APIからのデータ取得に失敗したため、サンプルデータを表示しています');
+    if (newBusinesses.length < 10) {
+      console.log('⚠️ 実データ取得が不十分、サンプルデータで補完中...');
+      console.log('🚨 APIからのデータ取得が限定的なため、サンプルデータを追加表示しています');
       onProgress?.('サンプルデータを生成中...', enabledSources.length, enabledSources.length + 1);
       
-      const fallbackData = this.generateDiverseSampleData(30); // 30社分のサンプル
+      const remainingCount = 50 - newBusinesses.length; // 合計50社を目標
+      const fallbackData = this.generateDiverseSampleData(remainingCount);
       newBusinesses.push(...fallbackData);
-      console.log(`📝 ${fallbackData.length}社のサンプルデータを生成`);
+      console.log(`📝 ${fallbackData.length}社のサンプルデータを追加生成`);
       console.log('💡 これらは実在しない企業のダミーデータです');
     } else {
       console.log('🎉 実際の企業データの取得に成功しました！');

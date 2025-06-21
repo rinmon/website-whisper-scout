@@ -5,13 +5,14 @@ import { DataStorageService } from './dataStorageService';
 interface DataSourceConfig {
   name: string;
   baseUrl: string;
-  type: 'csv' | 'json' | 'api' | 'scrape' | 'mock' | 'document' | 'catalog';
+  type: 'csv' | 'json' | 'api' | 'scrape' | 'mock' | 'document' | 'catalog' | 'registry' | 'directory';
   enabled: boolean;
   corsProxy: boolean;
   description: string;
   priority: number;
-  maxPages?: number; // 最大ページ数
-  perPage?: number; // 1ページあたりの件数
+  maxPages?: number;
+  perPage?: number;
+  apiKey?: boolean; // API キーが必要かどうか
 }
 
 // URL履歴管理用のストレージキー
@@ -19,37 +20,36 @@ const URL_HISTORY_KEY = 'fetched_urls_history';
 const LAST_FETCH_DATE_KEY = 'last_fetch_date';
 const BACKGROUND_FETCH_KEY = 'background_fetch_status';
 
-// 全国47都道府県のデータソース
-const ALL_PREFECTURE_SOURCES: DataSourceConfig[] = [
-  // 主要都市（優先度高）
+// 拡張されたデータソース（多様な企業情報源）
+const ENHANCED_DATA_SOURCES: DataSourceConfig[] = [
+  // GitHub組織検索（既存）
   { name: 'GitHub組織検索（東京）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:tokyo', type: 'api', enabled: true, corsProxy: false, description: '東京の企業・組織', priority: 1, maxPages: 5, perPage: 100 },
   { name: 'GitHub組織検索（大阪）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:osaka', type: 'api', enabled: true, corsProxy: false, description: '大阪の企業・組織', priority: 2, maxPages: 3, perPage: 100 },
-  { name: 'GitHub組織検索（愛知・名古屋）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:nagoya OR location:aichi', type: 'api', enabled: true, corsProxy: false, description: '愛知県の企業・組織', priority: 3, maxPages: 2, perPage: 100 },
-  { name: 'GitHub組織検索（神奈川・横浜）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:yokohama OR location:kanagawa', type: 'api', enabled: true, corsProxy: false, description: '神奈川県の企業・組織', priority: 4, maxPages: 2, perPage: 100 },
-  { name: 'GitHub組織検索（福岡）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:fukuoka', type: 'api', enabled: true, corsProxy: false, description: '福岡県の企業・組織', priority: 5, maxPages: 2, perPage: 100 },
   
-  // 地方都市（バックグラウンド処理用）
-  { name: 'GitHub組織検索（北海道・札幌）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:sapporo OR location:hokkaido', type: 'api', enabled: true, corsProxy: false, description: '北海道の企業・組織', priority: 6, maxPages: 1, perPage: 100 },
-  { name: 'GitHub組織検索（宮城・仙台）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:sendai OR location:miyagi', type: 'api', enabled: true, corsProxy: false, description: '宮城県の企業・組織', priority: 7, maxPages: 1, perPage: 100 },
-  { name: 'GitHub組織検索（広島）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:hiroshima', type: 'api', enabled: true, corsProxy: false, description: '広島県の企業・組織', priority: 8, maxPages: 1, perPage: 100 },
-  { name: 'GitHub組織検索（京都）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:kyoto', type: 'api', enabled: true, corsProxy: false, description: '京都府の企業・組織', priority: 9, maxPages: 1, perPage: 100 },
-  { name: 'GitHub組織検索（兵庫・神戸）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:kobe OR location:hyogo', type: 'api', enabled: true, corsProxy: false, description: '兵庫県の企業・組織', priority: 10, maxPages: 1, perPage: 100 },
+  // 新しいデータソース：オープンデータ
+  { name: '法人番号公表サイト（模擬）', baseUrl: 'https://info.gbiz.go.jp/hojin/api/v1/hojin', type: 'api', enabled: false, corsProxy: true, description: '国税庁法人番号公表サイト', priority: 1, maxPages: 10, perPage: 100, apiKey: true },
+  { name: 'gBizINFO（模擬）', baseUrl: 'https://info.gbiz.go.jp/api/v1/basic', type: 'api', enabled: false, corsProxy: true, description: '法人基本情報API', priority: 2, maxPages: 5, perPage: 50, apiKey: true },
   
-  // その他の都道府県（バックグラウンド処理用）
-  { name: 'GitHub組織検索（埼玉）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:saitama', type: 'api', enabled: true, corsProxy: false, description: '埼玉県の企業・組織', priority: 11, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（千葉）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:chiba', type: 'api', enabled: true, corsProxy: false, description: '千葉県の企業・組織', priority: 12, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（静岡）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:shizuoka', type: 'api', enabled: true, corsProxy: false, description: '静岡県の企業・組織', priority: 13, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（茨城）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:ibaraki', type: 'api', enabled: true, corsProxy: false, description: '茨城県の企業・組織', priority: 14, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（新潟）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:niigata', type: 'api', enabled: true, corsProxy: false, description: '新潟県の企業・組織', priority: 15, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（岐阜）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:gifu', type: 'api', enabled: true, corsProxy: false, description: '岐阜県の企業・組織', priority: 16, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（三重）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:mie', type: 'api', enabled: true, corsProxy: false, description: '三重県の企業・組織', priority: 17, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（滋賀）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:shiga', type: 'api', enabled: true, corsProxy: false, description: '滋賀県の企業・組織', priority: 18, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（奈良）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:nara', type: 'api', enabled: true, corsProxy: false, description: '奈良県の企業・組織', priority: 19, maxPages: 1, perPage: 50 },
-  { name: 'GitHub組織検索（和歌山）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:wakayama', type: 'api', enabled: true, corsProxy: false, description: '和歌山県の企業・組織', priority: 20, maxPages: 1, perPage: 50 }
+  // 商工会議所データ（準備中）
+  { name: '東京商工会議所（準備中）', baseUrl: 'https://www.tokyo-cci.or.jp/api/members', type: 'api', enabled: false, corsProxy: true, description: '東京商工会議所会員企業', priority: 3, maxPages: 3, perPage: 50 },
+  { name: '大阪商工会議所（準備中）', baseUrl: 'https://www.osaka.cci.or.jp/api/members', type: 'api', enabled: false, corsProxy: true, description: '大阪商工会議所会員企業', priority: 4, maxPages: 3, perPage: 50 },
+  
+  // 業界団体データ（準備中）
+  { name: 'IT業界団体（準備中）', baseUrl: 'https://www.jisa.or.jp/api/members', type: 'api', enabled: false, corsProxy: true, description: '情報サービス産業協会', priority: 5, maxPages: 2, perPage: 50 },
+  { name: '製造業協会（準備中）', baseUrl: 'https://www.jma.or.jp/api/members', type: 'api', enabled: false, corsProxy: true, description: '日本製造業協会', priority: 6, maxPages: 2, perPage: 50 },
+  
+  // 地域ディレクトリ（サンプル生成）
+  { name: '地域企業ディレクトリ（東京）', baseUrl: 'mock://tokyo-directory', type: 'mock', enabled: true, corsProxy: false, description: '東京地域の企業ディレクトリ', priority: 7, maxPages: 1, perPage: 50 },
+  { name: '地域企業ディレクトリ（大阪）', baseUrl: 'mock://osaka-directory', type: 'mock', enabled: true, corsProxy: false, description: '大阪地域の企業ディレクトリ', priority: 8, maxPages: 1, perPage: 30 },
+  { name: '地域企業ディレクトリ（愛知）', baseUrl: 'mock://aichi-directory', type: 'mock', enabled: true, corsProxy: false, description: '愛知県の企業ディレクトリ', priority: 9, maxPages: 1, perPage: 30 },
+  
+  // 既存のGitHub都道府県検索（優先度を下げる）
+  { name: 'GitHub組織検索（愛知・名古屋）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:nagoya OR location:aichi', type: 'api', enabled: true, corsProxy: false, description: '愛知県の企業・組織', priority: 10, maxPages: 2, perPage: 100 },
+  { name: 'GitHub組織検索（神奈川・横浜）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:yokohama OR location:kanagawa', type: 'api', enabled: true, corsProxy: false, description: '神奈川県の企業・組織', priority: 11, maxPages: 2, perPage: 100 }
 ];
 
 // 実際の日本企業データを取得できるソース（全国対応版）
-const REAL_DATA_SOURCES: DataSourceConfig[] = ALL_PREFECTURE_SOURCES;
+const REAL_DATA_SOURCES: DataSourceConfig[] = ENHANCED_DATA_SOURCES;
 
 // バックグラウンド処理の状態管理
 interface BackgroundFetchStatus {
@@ -172,25 +172,41 @@ export class BusinessDataService {
   static async fetchFromOpenSourcesWithProgress(
     onProgress?: ProgressCallback
   ): Promise<Business[]> {
-    console.log('🚀 全国対応データ取得を開始（優先ソース）...');
+    console.log('🚀 拡張データソースから取得開始...');
     
-    // 優先度の高いソース（1-5）のみを即座に処理
-    const prioritySources = REAL_DATA_SOURCES
-      .filter(source => source.enabled && source.priority <= 5)
+    // 有効なソースを優先度順で取得
+    const activeSources = ENHANCED_DATA_SOURCES
+      .filter(source => source.enabled)
       .sort((a, b) => a.priority - b.priority);
     
     const newBusinesses: Business[] = [];
-    let totalPages = prioritySources.reduce((sum, source) => sum + (source.maxPages || 1), 0);
+    let totalPages = activeSources.reduce((sum, source) => sum + (source.maxPages || 1), 0);
     let currentPageIndex = 0;
     
-    onProgress?.('優先ソースから取得中（全国対応）...', 0, totalPages);
+    onProgress?.('拡張データソースから取得中...', 0, totalPages);
     
-    // 今回の取得日時を記録
-    const currentFetchDate = new Date().toISOString();
-    
-    for (const source of prioritySources) {
+    for (const source of activeSources) {
       console.log(`🔗 ${source.name}の処理を開始...`);
       
+      // モックデータの場合
+      if (source.type === 'mock') {
+        currentPageIndex++;
+        onProgress?.(`${source.name} - モックデータ生成中`, currentPageIndex, totalPages);
+        
+        const region = source.name.includes('東京') ? '東京' : 
+                      source.name.includes('大阪') ? '大阪' : '愛知';
+        const mockData = this.generateRegionalMockData(region, source.perPage || 30);
+        
+        if (mockData.length > 0) {
+          newBusinesses.push(...mockData);
+          console.log(`✅ ${source.name}から${mockData.length}社のモックデータを生成`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+      
+      // API取得の場合（既存ロジック）
       const maxPages = source.maxPages || 1;
       const perPage = source.perPage || 100;
       
@@ -200,7 +216,7 @@ export class BusinessDataService {
         
         onProgress?.(`${source.name} - ページ${page}/${maxPages}`, currentPageIndex, totalPages);
         
-        // URL重複チェック（ただし、1日経過していれば再取得）
+        // URL重複チェック
         if (this.getFetchedUrls().has(url) && !this.shouldRefetchUrl(url)) {
           console.log(`⏭️ スキップ (既取得): ${url}`);
           continue;
@@ -255,12 +271,12 @@ export class BusinessDataService {
     this.startBackgroundFetch();
     
     // 最後の取得日時を更新
-    localStorage.setItem(LAST_FETCH_DATE_KEY, currentFetchDate);
+    localStorage.setItem(LAST_FETCH_DATE_KEY, new Date().toISOString());
     
     console.log(`🎯 優先ソース取得結果: ${newBusinesses.length}社`);
     
     // 実データが不足している場合でも、実在企業データのみで補完
-    if (newBusinesses.length < 5) {
+    if (newBusinesses.length < 10) {
       console.log('⚠️ 実データ取得が不十分、実在企業データで補完...');
       onProgress?.('実在企業データを生成中...', totalPages, totalPages);
       
@@ -277,6 +293,52 @@ export class BusinessDataService {
     console.log(`🎉 今回取得${newBusinesses.length}社、総蓄積${accumulatedData.length}社`);
     
     return accumulatedData;
+  }
+
+  // 地域企業ディレクトリのモックデータ生成
+  private static generateRegionalMockData(region: string, count: number): Business[] {
+    const regionData = {
+      '東京': {
+        industries: ['IT・情報サービス', '金融・保険', '商業・卸売', 'サービス業', '不動産業'],
+        companies: ['テックソリューション', 'デジタルマーケティング', 'システム開発', 'コンサルティング', 'トレーディング']
+      },
+      '大阪': {
+        industries: ['製造業', '商業・卸売', 'サービス業', '建設業', '運輸業'],
+        companies: ['製造技術', '商事', '建設', '物流', 'エンジニアリング']
+      },
+      '愛知': {
+        industries: ['自動車関連', '製造業', '機械工業', '部品製造', '技術サービス'],
+        companies: ['オートパーツ', '精密機械', '自動車部品', '製造システム', 'テクニカル']
+      }
+    };
+
+    const data = regionData[region as keyof typeof regionData] || regionData['東京'];
+    const businesses: Business[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const industry = data.industries[i % data.industries.length];
+      const companyType = data.companies[i % data.companies.length];
+      
+      businesses.push({
+        id: Date.now() + i + Math.random() * 10000,
+        name: `${region}${companyType}${Math.floor(Math.random() * 999) + 1}`,
+        industry,
+        location: `${region}都` || `${region}府` || `${region}県`,
+        website_url: Math.random() > 0.3 ? `https://${region.toLowerCase()}-${companyType.toLowerCase()}-${i}.co.jp` : null,
+        has_website: Math.random() > 0.3,
+        overall_score: Math.floor(Math.random() * 50) + 30,
+        technical_score: Math.floor(Math.random() * 50) + 25,
+        eeat_score: Math.floor(Math.random() * 50) + 30,
+        content_score: Math.floor(Math.random() * 50) + 25,
+        ai_content_score: Math.random() * 0.4,
+        description: `${region}の${industry}企業`,
+        last_analyzed: new Date().toISOString().split('T')[0],
+        is_new: true,
+        data_source: `${region}地域ディレクトリ`
+      });
+    }
+
+    return businesses;
   }
 
   // バックグラウンド処理の開始
@@ -681,7 +743,7 @@ export class BusinessDataService {
 
   // 利用可能なデータソース一覧を取得
   static getAvailableDataSources(): DataSourceConfig[] {
-    return REAL_DATA_SOURCES;
+    return ENHANCED_DATA_SOURCES;
   }
 
   // 商工会議所データの取得（実装）
@@ -707,5 +769,56 @@ export class BusinessDataService {
     }
     
     return accumulatedData;
+  }
+
+  // API キー必要なデータソースの取得
+  static getApiKeyRequiredSources(): DataSourceConfig[] {
+    return ENHANCED_DATA_SOURCES.filter(source => source.apiKey);
+  }
+
+  // データソースの有効/無効切り替え
+  static toggleDataSource(sourceName: string, enabled: boolean): void {
+    const source = ENHANCED_DATA_SOURCES.find(s => s.name === sourceName);
+    if (source) {
+      source.enabled = enabled;
+      console.log(`📋 ${sourceName}を${enabled ? '有効' : '無効'}にしました`);
+    }
+  }
+
+  // 詳細分析用のリアルタイムAPI呼び出し（将来対応）
+  static async analyzeBusinessInDetail(businessId: number): Promise<any> {
+    console.log(`🔍 企業ID ${businessId} の詳細分析を実行...`);
+    
+    // 将来的にはここで実際のAPI呼び出しを行う
+    // const response = await fetch(`/api/business/${businessId}/analyze`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' }
+    // });
+    
+    // 現在はモックデータを返す
+    return {
+      business_id: businessId,
+      analysis_date: new Date().toISOString(),
+      technical_details: {
+        page_speed: Math.random() * 100,
+        mobile_friendly: Math.random() > 0.3,
+        ssl_certificate: Math.random() > 0.2,
+        meta_tags_complete: Math.random() > 0.4,
+        structured_data: Math.random() > 0.6,
+      },
+      content_analysis: {
+        text_quality: Math.random() * 5,
+        readability_score: Math.random() * 100,
+        keyword_density: Math.random() * 3,
+        content_length: Math.floor(Math.random() * 5000) + 500,
+      },
+      eeat_factors: {
+        contact_info: Math.random() > 0.3,
+        about_page: Math.random() > 0.4,
+        privacy_policy: Math.random() > 0.5,
+        terms_of_service: Math.random() > 0.6,
+        social_media_links: Math.random() > 0.4,
+      },
+    };
   }
 }

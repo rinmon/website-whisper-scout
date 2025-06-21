@@ -1,3 +1,4 @@
+
 import { Business } from '@/types/business';
 
 export class DataStorageService {
@@ -232,12 +233,15 @@ export class DataStorageService {
           sessionStorage.removeItem(key);
           console.log(`🗑️ セッションストレージ削除: ${key}`);
         });
+        
+        console.log(`✅ 全データ削除完了 (${keysToRemove.length + sessionKeysToRemove.length}個のキー削除)`);
+      } else {
+        console.log(`✅ 全データ削除完了 (${keysToRemove.length}個のキー削除)`);
       }
       
       // 4. メモリ内のキャッシュもクリア
       this.clearMemoryCache();
       
-      console.log(`✅ 全データ削除完了 (${keysToRemove.length + (sessionKeysToRemove?.length || 0)}個のキー削除)`);
     } catch (error) {
       console.error('データ削除エラー:', error);
     }

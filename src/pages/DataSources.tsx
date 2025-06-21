@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw, Pause, Activity, MapPin } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
-import { DashboardLayout } from "@/components/DashboardLayout";
+import DashboardLayout from "@/components/DashboardLayout";
 import type { ProgressCallback } from "@/services/businessDataService";
 
 const DataSources = () => {

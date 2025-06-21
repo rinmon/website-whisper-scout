@@ -381,21 +381,21 @@ export class BusinessDataService {
   }
 
   // 統計データから従業員数を推定
-  private static inferEmployeeCount(data: any): number | undefined {
+  private static inferEmployeeCount(data: any): string | undefined {
     if (data.unit === '人' || data.category.includes('従業者')) {
-      return Math.floor(data.value);
+      return String(Math.floor(data.value));
     }
     // その他の場合は規模から推定
-    return Math.floor(Math.random() * 500) + 10;
+    return String(Math.floor(Math.random() * 500) + 10);
   }
 
   // 統計データから資本金を推定
-  private static inferCapital(data: any): number | undefined {
+  private static inferCapital(data: any): string | undefined {
     if (data.unit === '千円' || data.unit === '万円') {
-      return data.value * (data.unit === '万円' ? 10 : 1);
+      return String(data.value * (data.unit === '万円' ? 10 : 1));
     }
     // その他の場合は規模から推定
-    return Math.floor(Math.random() * 50000) + 1000;
+    return String(Math.floor(Math.random() * 50000) + 1000);
   }
 
   // 地域企業ディレクトリのモックデータ生成

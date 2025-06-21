@@ -1,12 +1,12 @@
 
 import { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Settings } from "lucide-react";
+import { Settings, Home, Building, FileText, Database } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,6 +15,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const userPoints = 2450;
   const userName = "田中 太郎";
 
@@ -24,6 +25,13 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
     }
   };
 
+  const navigationItems = [
+    { path: "/", label: "ホーム", icon: Home },
+    { path: "/businesses", label: "企業一覧", icon: Building },
+    { path: "/report", label: "レポート", icon: FileText },
+    { path: "/data-sources", label: "データソース", icon: Database },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* ヘッダー */}
@@ -31,12 +39,32 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate("/")}>
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">ク</span>
                 </div>
                 <span className="font-bold text-gray-900">スカウター</span>
               </div>
+              
+              {/* ナビゲーションメニュー */}
+              <nav className="hidden md:flex space-x-1 ml-8">
+                {navigationItems.map((item) => {
+                  const IconComponent = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Button
+                      key={item.path}
+                      variant={isActive ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => navigate(item.path)}
+                      className="flex items-center space-x-2"
+                    >
+                      <IconComponent className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Button>
+                  );
+                })}
+              </nav>
             </div>
 
             <div className="flex items-center space-x-4">

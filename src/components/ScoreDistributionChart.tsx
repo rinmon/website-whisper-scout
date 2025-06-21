@@ -28,17 +28,6 @@ const toSafeNumber = (value: any): number => {
   return (!Number.isFinite(num) || Number.isNaN(num)) ? 0 : Math.max(0, Math.min(5, num));
 };
 
-// 安全なドメイン計算 - 固定値を返す
-const getSafeDomain = (maxValue: number): [number, number] => {
-  const safeMax = toSafeNumber(maxValue);
-  if (safeMax <= 0) return [0, 5];
-  
-  const upperBound = Math.ceil(safeMax * 1.2);
-  const finalBound = Math.max(upperBound, 1);
-  
-  return [0, finalBound];
-};
-
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart rendering with businesses:", businesses?.length || 0);
 
@@ -156,20 +145,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     .filter(item => item.average > 0)
     .sort((a, b) => b.average - a.average);
 
-  // 安全なドメイン計算
-  const maxCount = Math.max(...distributionData.map(d => d.count), 1);
-  const maxAverage = Math.max(...industryData.map(d => d.average), 1);
-  
-  const countDomain = getSafeDomain(maxCount);
-  const averageDomain = getSafeDomain(maxAverage);
-
   console.log("Chart data:", {
     distributionData,
-    industryData,
-    maxCount,
-    maxAverage,
-    countDomain,
-    averageDomain
+    industryData
   });
 
   const chartConfig = {
@@ -204,7 +182,6 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
-                  domain={countDomain}
                   allowDecimals={false}
                 />
                 <ChartTooltip 
@@ -234,7 +211,6 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                 <BarChart data={industryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
                   <XAxis 
                     type="number"
-                    domain={averageDomain}
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"

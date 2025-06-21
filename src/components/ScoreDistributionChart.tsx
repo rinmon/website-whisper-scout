@@ -63,6 +63,10 @@ const getSafeDomain = (value: number): [number, number] => {
 
 // データ配列を完全にサニタイズする関数
 const sanitizeChartData = (data: any[]): any[] => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
+  
   return data.map(item => {
     const sanitizedItem: any = {};
     for (const [key, value] of Object.entries(item)) {
@@ -81,11 +85,60 @@ const sanitizeChartData = (data: any[]): any[] => {
   });
 };
 
+// チャートデータが有効かチェック
+const isValidChartData = (data: any[]): boolean => {
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+  
+  return data.every(item => {
+    if (!item || typeof item !== 'object') return false;
+    
+    const numericValues = Object.values(item).filter(value => typeof value === 'number');
+    if (numericValues.length === 0) return false;
+    
+    return numericValues.every(value => 
+      Number.isFinite(value) && !Number.isNaN(value) && value >= 0
+    );
+  });
+};
+
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart rendering with businesses:", businesses?.length || 0);
 
+  // 入力データの基本チェック
+  if (!businesses || !Array.isArray(businesses) || businesses.length === 0) {
+    console.log("No businesses data provided");
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>スコア分布</CardTitle>
+            <CardDescription>サイト保有企業の品質スコア分布</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>業界別平均スコア</CardTitle>
+            <CardDescription>各業界のウェブサイト品質平均値</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // データの完全なサニタイズ
-  const safeBusinesses = (businesses || []).map(b => ({
+  const safeBusinesses = businesses.map(b => ({
     ...b,
     overall_score: sanitizeNumber(b.overall_score),
     technical_score: sanitizeNumber(b.technical_score),
@@ -100,6 +153,37 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   );
 
   console.log("Filtered businesses:", businessesWithWebsite?.length || 0);
+
+  // 有効な企業データがない場合は早期リターン
+  if (!businessesWithWebsite || businessesWithWebsite.length === 0) {
+    console.log("No valid businesses with websites");
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>スコア分布</CardTitle>
+            <CardDescription>サイト保有企業の品質スコア分布</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>業界別平均スコア</CardTitle>
+            <CardDescription>各業界のウェブサイト品質平均値</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center h-64 text-muted-foreground">
+              データがありません
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // スコア分布データの準備
   const scoreRanges = [
@@ -153,6 +237,12 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
   console.log("Safe distribution data:", safeDistributionData);
   console.log("Safe industry data:", safeIndustryData);
 
+  // チャートデータの有効性チェック
+  const hasValidDistribution = isValidChartData(safeDistributionData);
+  const hasValidIndustry = isValidChartData(safeIndustryData);
+
+  console.log("Chart data validity:", { hasValidDistribution, hasValidIndustry });
+
   const chartConfig = {
     count: {
       label: "企業数",
@@ -164,39 +254,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     },
   };
 
-  // データが存在しない場合
-  if (!businessesWithWebsite.length || safeDistributionData.length === 0) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>スコア分布</CardTitle>
-            <CardDescription>サイト保有企業の品質スコア分布</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              データがありません
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>業界別平均スコア</CardTitle>
-            <CardDescription>各業界のウェブサイト品質平均値</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center h-64 text-muted-foreground">
-              データがありません
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   // 安全にdomain値を計算 - 固定された配列形式で返す
-  const maxCount = getSafeMax(safeDistributionData.map(d => d.count), 1);
-  const maxAverage = getSafeMax(safeIndustryData.map(d => d.average), 1);
+  const maxCount = hasValidDistribution ? getSafeMax(safeDistributionData.map(d => d.count), 1) : 1;
+  const maxAverage = hasValidIndustry ? getSafeMax(safeIndustryData.map(d => d.average), 1) : 1;
   
   const countDomain = getSafeDomain(maxCount);
   const averageDomain = getSafeDomain(maxAverage);
@@ -207,7 +267,9 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     countDomain, 
     averageDomain,
     safeDistributionDataLength: safeDistributionData.length,
-    safeIndustryDataLength: safeIndustryData.length
+    safeIndustryDataLength: safeIndustryData.length,
+    hasValidDistribution,
+    hasValidIndustry
   });
 
   return (
@@ -218,7 +280,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           <CardDescription>サイト保有企業の品質スコア分布</CardDescription>
         </CardHeader>
         <CardContent>
-          {safeDistributionData.length > 0 ? (
+          {hasValidDistribution ? (
             <ChartContainer config={chartConfig}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={safeDistributionData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -262,7 +324,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
           <CardDescription>各業界のウェブサイト品質平均値</CardDescription>
         </CardHeader>
         <CardContent>
-          {safeIndustryData.length > 0 ? (
+          {hasValidIndustry ? (
             <ChartContainer config={chartConfig}>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={safeIndustryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>

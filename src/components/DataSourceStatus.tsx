@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw } from "lucide-react";
+import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2 } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import type { ProgressCallback } from "@/services/businessDataService";
@@ -76,14 +75,7 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
     if (confirm('すべての蓄積データを削除しますか？この操作は取り消せません。')) {
       clearAllData();
       setCurrentStatus('すべてのデータを削除しました');
-      setTimeout(() => setCurrentStatus(''), 2000);
-    }
-  };
-
-  const handleRemoveSampleData = () => {
-    if (confirm('サンプルデータのみを削除しますか？')) {
-      removeSampleData();
-      setCurrentStatus('サンプルデータを削除しました');
+      onRefresh(); // 画面を更新
       setTimeout(() => setCurrentStatus(''), 2000);
     }
   };
@@ -144,15 +136,6 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
                 <Play className="mr-2 h-4 w-4" />
               )}
               {isRunning ? '取得中...' : '手動取得'}
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRemoveSampleData}
-              disabled={isRunning}
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              サンプル削除
             </Button>
             <Button 
               variant="destructive" 

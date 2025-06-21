@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const mockHistoryData = [
 const BusinessDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { logout } = useAuth();
   const { businesses } = useBusinessData();
@@ -33,12 +34,19 @@ const BusinessDetail = () => {
   // 蓄積された実際のデータから企業を検索
   const business = businesses.find(b => b.id === parseInt(id || "0"));
 
+  // 前のページのクエリパラメータを保持
+  const previousSearchParams = location.state?.searchParams || '';
+
+  const handleBackToList = () => {
+    navigate(`/businesses${previousSearchParams}`);
+  };
+
   if (!business) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">企業が見つかりません</h1>
-          <Button onClick={() => navigate("/businesses")}>
+          <Button onClick={handleBackToList}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             企業一覧に戻る
           </Button>
@@ -76,7 +84,7 @@ const BusinessDetail = () => {
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={() => navigate("/businesses")}>
+            <Button variant="outline" onClick={handleBackToList}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               企業一覧に戻る
             </Button>

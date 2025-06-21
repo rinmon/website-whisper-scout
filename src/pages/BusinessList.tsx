@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,7 @@ const ITEMS_PER_PAGE = 12;
 
 const BusinessList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
   const { businesses, isLoading, error } = useBusinessData();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -33,6 +33,13 @@ const BusinessList = () => {
     toast({
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",
+    });
+  };
+
+  const handleBusinessDetail = (businessId: number) => {
+    const currentSearchParams = location.search;
+    navigate(`/business/${businessId}`, {
+      state: { searchParams: currentSearchParams }
     });
   };
 
@@ -282,7 +289,7 @@ const BusinessList = () => {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => navigate(`/business/${business.id}`)}
+                    onClick={() => handleBusinessDetail(business.id)}
                   >
                     詳細分析
                   </Button>

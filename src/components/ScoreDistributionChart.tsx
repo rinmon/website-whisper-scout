@@ -54,6 +54,16 @@ const getSafeMax = (numbers: number[], fallback: number = 1): number => {
   return Number.isFinite(max) && !Number.isNaN(max) ? max : fallback;
 };
 
+// 安全なdomain計算関数
+const getSafeDomain = (value: number, multiplier: number = 1.1): number => {
+  if (!Number.isFinite(value) || Number.isNaN(value) || value <= 0) {
+    return 5; // デフォルト値
+  }
+  
+  const calculated = Math.ceil(value * multiplier);
+  return Number.isFinite(calculated) && !Number.isNaN(calculated) ? calculated : 5;
+};
+
 const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => {
   console.log("ScoreDistributionChart rendering with businesses:", businesses?.length || 0);
 
@@ -164,11 +174,22 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
     );
   }
 
-  // 最大値を安全に計算
+  // 安全にdomain値を計算
   const maxCount = getSafeMax(distributionData.map(d => d.count), 1);
   const maxAverage = getSafeMax(industryData.map(d => d.average), 1);
+  
+  // domain値を完全に安全に計算
+  const countDomain = getSafeDomain(maxCount, 1.1);
+  const averageDomain = getSafeDomain(maxAverage, 1.1);
 
-  console.log("Chart max values:", { maxCount, maxAverage });
+  console.log("Chart values:", { 
+    maxCount, 
+    maxAverage, 
+    countDomain, 
+    averageDomain,
+    distributionData: distributionData.map(d => d.count),
+    industryData: industryData.map(d => d.average)
+  });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -191,7 +212,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                   tickLine={false}
                   axisLine={false}
                   className="text-xs"
-                  domain={[0, Math.ceil(maxCount)]}
+                  domain={[0, countDomain]}
                   allowDecimals={false}
                   type="number"
                 />
@@ -222,7 +243,7 @@ const ScoreDistributionChart = ({ businesses }: ScoreDistributionChartProps) => 
                 <BarChart data={industryData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
                   <XAxis 
                     type="number"
-                    domain={[0, Math.ceil(maxAverage * 1.1)]}
+                    domain={[0, averageDomain]}
                     tickLine={false}
                     axisLine={false}
                     className="text-xs"

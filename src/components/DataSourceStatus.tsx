@@ -1,10 +1,10 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw } from "lucide-react";
+import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw, Pause, Activity } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import type { ProgressCallback } from "@/services/businessDataService";
@@ -19,17 +19,31 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
   const [progress, setProgress] = useState(0);
   const [currentStatus, setCurrentStatus] = useState('');
   const [fetchResults, setFetchResults] = useState<{ total: number; time: string } | null>(null);
+  const [backgroundStatus, setBackgroundStatus] = useState<any>(null);
   
   const { clearAllData, removeSampleData, getDataStats } = useBusinessData();
   const dataSources = BusinessDataService.getAvailableDataSources();
   const dataStats = getDataStats();
+
+  // バックグラウンド処理の状況を定期的に更新
+  useEffect(() => {
+    const updateBackgroundStatus = () => {
+      const bgStatus = BusinessDataService.getBackgroundFetchStatus();
+      setBackgroundStatus(bgStatus);
+    };
+
+    updateBackgroundStatus();
+    const interval = setInterval(updateBackgroundStatus, 3000); // 3秒ごとに更新
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleManualFetch = async () => {
     if (isRunning) return;
     
     setIsRunning(true);
     setProgress(0);
-    setCurrentStatus('改善されたデータ取得を開始...');
+    setCurrentStatus('全国対応データ取得を開始...');
     setFetchResults(null);
     
     const startTime = Date.now();
@@ -50,7 +64,7 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
         time: `${duration}秒`
       });
       
-      setCurrentStatus('データ取得完了！');
+      setCurrentStatus('優先ソース取得完了！バックグラウンド処理中...');
       
       if (onDataFetched) {
         onDataFetched(businesses);
@@ -68,6 +82,12 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
         setCurrentStatus('');
       }, 3000);
     }
+  };
+
+  const handleStopBackground = () => {
+    BusinessDataService.stopBackgroundFetch();
+    setCurrentStatus('バックグラウンド処理を停止しました');
+    setTimeout(() => setCurrentStatus(''), 2000);
   };
 
   const handleClearAllData = async () => {
@@ -145,10 +165,11 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
           <div>
             <CardTitle className="flex items-center">
               <Database className="mr-2 h-5 w-5" />
-              データソース状況
+              データソース状況（全国対応）
             </CardTitle>
             <CardDescription>
-              企業データの取得元と状況 • 蓄積データ: {dataStats.totalCount}社
+              全国47都道府県対応 • 蓄積データ: {dataStats.totalCount}社
+              {backgroundStatus?.isRunning && " • バックグラウンド処理中"}
             </CardDescription>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -163,8 +184,18 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
               ) : (
                 <Play className="mr-2 h-4 w-4" />
               )}
-              {isRunning ? '取得中...' : '手動取得'}
+              {isRunning ? '取得中...' : '優先取得'}
             </Button>
+            {backgroundStatus?.isRunning && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleStopBackground}
+              >
+                <Pause className="mr-2 h-4 w-4" />
+                BG停止
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
@@ -213,6 +244,29 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
             </div>
           )}
 
+          {/* バックグラウンド処理状況 */}
+          {backgroundStatus?.isRunning && (
+            <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
+              <div className="flex items-center mb-2">
+                <Activity className="h-4 w-4 text-green-500 mr-2" />
+                <span className="text-sm font-medium text-green-900">
+                  バックグラウンド処理中 - 地方都市データ取得
+                </span>
+              </div>
+              <Progress 
+                value={backgroundStatus.totalSources > 0 ? 
+                  (backgroundStatus.completedSources / backgroundStatus.totalSources) * 100 : 0} 
+                className="h-2" 
+              />
+              <p className="text-xs text-green-800 mt-1">
+                {backgroundStatus.completedSources} / {backgroundStatus.totalSources} 都道府県完了
+                <span className="ml-2">
+                  最終更新: {new Date(backgroundStatus.lastUpdate).toLocaleTimeString()}
+                </span>
+              </p>
+            </div>
+          )}
+
           {/* 状況メッセージ表示 */}
           {currentStatus && !isRunning && (
             <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
@@ -231,20 +285,22 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
               <div className="flex items-center">
                 <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
                 <span className="text-sm font-medium text-green-900">
-                  取得完了: {fetchResults.total}社のデータを{fetchResults.time}で取得
+                  優先取得完了: {fetchResults.total}社のデータを{fetchResults.time}で取得
                 </span>
               </div>
             </div>
           )}
 
-          {/* データソース一覧 */}
-          {dataSources.map((source, index) => (
+          {/* データソース一覧（優先度上位5つを表示） */}
+          {dataSources.slice(0, 5).map((source, index) => (
             <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
               <div className="flex items-center space-x-3">
                 {getStatusIcon(source.type, source.enabled)}
                 <div>
                   <div className="font-medium">{source.name}</div>
-                  <div className="text-sm text-muted-foreground">{source.baseUrl}</div>
+                  <div className="text-sm text-muted-foreground">
+                    優先度 {source.priority} • {source.maxPages}ページ
+                  </div>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -253,17 +309,36 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
             </div>
           ))}
           
-          <div className="mt-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+          {/* その他のソース情報 */}
+          <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
             <div className="flex items-center">
-              <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-              <span className="text-sm font-medium text-green-900">
-                実装状況
+              <Database className="h-4 w-4 text-blue-600 mr-2" />
+              <span className="text-sm font-medium text-blue-900">
+                全国対応実装完了
               </span>
             </div>
-            <p className="text-xs text-green-800 mt-1">
-              日本企業データの取得・蓄積・フィルタリング機能を実装済み。著名企業データで動作確認中
+            <p className="text-xs text-blue-800 mt-1">
+              優先ソース5件＋地方都市{dataSources.length - 5}件をバックグラウンド処理中。
+              47都道府県から企業データを自動取得します。
             </p>
           </div>
+
+          {/* エラー表示 */}
+          {backgroundStatus?.errors && backgroundStatus.errors.length > 0 && (
+            <div className="p-3 bg-red-50 rounded-lg border-l-4 border-red-500">
+              <div className="flex items-center mb-2">
+                <AlertCircle className="h-4 w-4 text-red-500 mr-2" />
+                <span className="text-sm font-medium text-red-900">
+                  バックグラウンド処理エラー
+                </span>
+              </div>
+              <div className="text-xs text-red-800 space-y-1">
+                {backgroundStatus.errors.slice(-3).map((error: string, i: number) => (
+                  <div key={i}>• {error}</div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -17,43 +17,49 @@ interface DataSourceConfig {
 // URL履歴管理用のストレージキー
 const URL_HISTORY_KEY = 'fetched_urls_history';
 const LAST_FETCH_DATE_KEY = 'last_fetch_date';
+const BACKGROUND_FETCH_KEY = 'background_fetch_status';
 
-// 実際の日本企業データを取得できるソース（統合版）
-const REAL_DATA_SOURCES: DataSourceConfig[] = [
-  {
-    name: 'GitHub組織検索（IT企業）',
-    baseUrl: 'https://api.github.com/search/users?q=type:org+location:japan',
-    type: 'api',
-    enabled: true,
-    corsProxy: false,
-    description: 'IT企業・技術系組織（複数ページ対応）',
-    priority: 1,
-    maxPages: 5,
-    perPage: 100
-  },
-  {
-    name: 'GitHub組織検索（東京企業）',
-    baseUrl: 'https://api.github.com/search/users?q=type:org+location:tokyo',
-    type: 'api',
-    enabled: true,
-    corsProxy: false,
-    description: '東京の企業・組織（複数ページ対応）',
-    priority: 2,
-    maxPages: 3,
-    perPage: 100
-  },
-  {
-    name: 'GitHub組織検索（大阪企業）',
-    baseUrl: 'https://api.github.com/search/users?q=type:org+location:osaka',
-    type: 'api',
-    enabled: true,
-    corsProxy: false,
-    description: '大阪の企業・組織（複数ページ対応）',
-    priority: 3,
-    maxPages: 2,
-    perPage: 100
-  }
+// 全国47都道府県のデータソース
+const ALL_PREFECTURE_SOURCES: DataSourceConfig[] = [
+  // 主要都市（優先度高）
+  { name: 'GitHub組織検索（東京）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:tokyo', type: 'api', enabled: true, corsProxy: false, description: '東京の企業・組織', priority: 1, maxPages: 5, perPage: 100 },
+  { name: 'GitHub組織検索（大阪）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:osaka', type: 'api', enabled: true, corsProxy: false, description: '大阪の企業・組織', priority: 2, maxPages: 3, perPage: 100 },
+  { name: 'GitHub組織検索（愛知・名古屋）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:nagoya OR location:aichi', type: 'api', enabled: true, corsProxy: false, description: '愛知県の企業・組織', priority: 3, maxPages: 2, perPage: 100 },
+  { name: 'GitHub組織検索（神奈川・横浜）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:yokohama OR location:kanagawa', type: 'api', enabled: true, corsProxy: false, description: '神奈川県の企業・組織', priority: 4, maxPages: 2, perPage: 100 },
+  { name: 'GitHub組織検索（福岡）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:fukuoka', type: 'api', enabled: true, corsProxy: false, description: '福岡県の企業・組織', priority: 5, maxPages: 2, perPage: 100 },
+  
+  // 地方都市（バックグラウンド処理用）
+  { name: 'GitHub組織検索（北海道・札幌）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:sapporo OR location:hokkaido', type: 'api', enabled: true, corsProxy: false, description: '北海道の企業・組織', priority: 6, maxPages: 1, perPage: 100 },
+  { name: 'GitHub組織検索（宮城・仙台）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:sendai OR location:miyagi', type: 'api', enabled: true, corsProxy: false, description: '宮城県の企業・組織', priority: 7, maxPages: 1, perPage: 100 },
+  { name: 'GitHub組織検索（広島）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:hiroshima', type: 'api', enabled: true, corsProxy: false, description: '広島県の企業・組織', priority: 8, maxPages: 1, perPage: 100 },
+  { name: 'GitHub組織検索（京都）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:kyoto', type: 'api', enabled: true, corsProxy: false, description: '京都府の企業・組織', priority: 9, maxPages: 1, perPage: 100 },
+  { name: 'GitHub組織検索（兵庫・神戸）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:kobe OR location:hyogo', type: 'api', enabled: true, corsProxy: false, description: '兵庫県の企業・組織', priority: 10, maxPages: 1, perPage: 100 },
+  
+  // その他の都道府県（バックグラウンド処理用）
+  { name: 'GitHub組織検索（埼玉）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:saitama', type: 'api', enabled: true, corsProxy: false, description: '埼玉県の企業・組織', priority: 11, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（千葉）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:chiba', type: 'api', enabled: true, corsProxy: false, description: '千葉県の企業・組織', priority: 12, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（静岡）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:shizuoka', type: 'api', enabled: true, corsProxy: false, description: '静岡県の企業・組織', priority: 13, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（茨城）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:ibaraki', type: 'api', enabled: true, corsProxy: false, description: '茨城県の企業・組織', priority: 14, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（新潟）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:niigata', type: 'api', enabled: true, corsProxy: false, description: '新潟県の企業・組織', priority: 15, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（岐阜）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:gifu', type: 'api', enabled: true, corsProxy: false, description: '岐阜県の企業・組織', priority: 16, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（三重）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:mie', type: 'api', enabled: true, corsProxy: false, description: '三重県の企業・組織', priority: 17, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（滋賀）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:shiga', type: 'api', enabled: true, corsProxy: false, description: '滋賀県の企業・組織', priority: 18, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（奈良）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:nara', type: 'api', enabled: true, corsProxy: false, description: '奈良県の企業・組織', priority: 19, maxPages: 1, perPage: 50 },
+  { name: 'GitHub組織検索（和歌山）', baseUrl: 'https://api.github.com/search/users?q=type:org+location:wakayama', type: 'api', enabled: true, corsProxy: false, description: '和歌山県の企業・組織', priority: 20, maxPages: 1, perPage: 50 }
 ];
+
+// 実際の日本企業データを取得できるソース（全国対応版）
+const REAL_DATA_SOURCES: DataSourceConfig[] = ALL_PREFECTURE_SOURCES;
+
+// バックグラウンド処理の状態管理
+interface BackgroundFetchStatus {
+  isRunning: boolean;
+  currentIndex: number;
+  totalSources: number;
+  completedSources: number;
+  lastUpdate: string;
+  errors: string[];
+}
 
 // 実際の企業データを生成するためのシード（実在企業のみ）
 const REAL_COMPANY_SEEDS = [
@@ -73,6 +79,34 @@ const REAL_COMPANY_SEEDS = [
 export type ProgressCallback = (status: string, progress: number, total: number) => void;
 
 export class BusinessDataService {
+  // バックグラウンド処理の状態管理
+  private static getBackgroundStatus(): BackgroundFetchStatus {
+    try {
+      const stored = localStorage.getItem(BACKGROUND_FETCH_KEY);
+      return stored ? JSON.parse(stored) : {
+        isRunning: false,
+        currentIndex: 0,
+        totalSources: 0,
+        completedSources: 0,
+        lastUpdate: '',
+        errors: []
+      };
+    } catch {
+      return {
+        isRunning: false,
+        currentIndex: 0,
+        totalSources: 0,
+        completedSources: 0,
+        lastUpdate: '',
+        errors: []
+      };
+    }
+  }
+
+  private static saveBackgroundStatus(status: BackgroundFetchStatus): void {
+    localStorage.setItem(BACKGROUND_FETCH_KEY, JSON.stringify(status));
+  }
+
   // URL履歴管理
   private static getFetchedUrls(): Set<string> {
     try {
@@ -134,26 +168,27 @@ export class BusinessDataService {
     return isSampleName || isSampleUrl;
   }
 
-  // 実際のデータソースから企業データを取得（サンプルデータ完全排除版）
+  // メインの取得処理（優先度の高いソースのみ）
   static async fetchFromOpenSourcesWithProgress(
     onProgress?: ProgressCallback
   ): Promise<Business[]> {
-    console.log('📊 実データのみ取得を開始（サンプルデータ完全排除）...');
+    console.log('🚀 全国対応データ取得を開始（優先ソース）...');
     
-    const enabledSources = REAL_DATA_SOURCES
-      .filter(source => source.enabled)
+    // 優先度の高いソース（1-5）のみを即座に処理
+    const prioritySources = REAL_DATA_SOURCES
+      .filter(source => source.enabled && source.priority <= 5)
       .sort((a, b) => a.priority - b.priority);
     
     const newBusinesses: Business[] = [];
-    let totalPages = enabledSources.reduce((sum, source) => sum + (source.maxPages || 1), 0);
+    let totalPages = prioritySources.reduce((sum, source) => sum + (source.maxPages || 1), 0);
     let currentPageIndex = 0;
     
-    onProgress?.('実データのみ取得中（サンプル完全排除）...', 0, totalPages);
+    onProgress?.('優先ソースから取得中（全国対応）...', 0, totalPages);
     
     // 今回の取得日時を記録
     const currentFetchDate = new Date().toISOString();
     
-    for (const source of enabledSources) {
+    for (const source of prioritySources) {
       console.log(`🔗 ${source.name}の処理を開始...`);
       
       const maxPages = source.maxPages || 1;
@@ -212,14 +247,17 @@ export class BusinessDataService {
         }
         
         // API制限対策（短めの待機時間）
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 1200));
       }
     }
+    
+    // バックグラウンド処理を開始（残りのソース）
+    this.startBackgroundFetch();
     
     // 最後の取得日時を更新
     localStorage.setItem(LAST_FETCH_DATE_KEY, currentFetchDate);
     
-    console.log(`🎯 実データ取得結果: ${newBusinesses.length}社`);
+    console.log(`🎯 優先ソース取得結果: ${newBusinesses.length}社`);
     
     // 実データが不足している場合でも、実在企業データのみで補完
     if (newBusinesses.length < 5) {
@@ -239,6 +277,146 @@ export class BusinessDataService {
     console.log(`🎉 今回取得${newBusinesses.length}社、総蓄積${accumulatedData.length}社`);
     
     return accumulatedData;
+  }
+
+  // バックグラウンド処理の開始
+  private static async startBackgroundFetch(): Promise<void> {
+    const status = this.getBackgroundStatus();
+    
+    if (status.isRunning) {
+      console.log('🔄 バックグラウンド処理は既に実行中です');
+      return;
+    }
+    
+    console.log('🌐 バックグラウンド処理を開始（残りの都道府県）...');
+    
+    // 優先度6以上のソース（地方都市）をバックグラウンドで処理
+    const backgroundSources = REAL_DATA_SOURCES
+      .filter(source => source.enabled && source.priority > 5)
+      .sort((a, b) => a.priority - b.priority);
+    
+    const newStatus: BackgroundFetchStatus = {
+      isRunning: true,
+      currentIndex: 0,
+      totalSources: backgroundSources.length,
+      completedSources: 0,
+      lastUpdate: new Date().toISOString(),
+      errors: []
+    };
+    
+    this.saveBackgroundStatus(newStatus);
+    
+    // 非同期でバックグラウンド処理を実行
+    setTimeout(async () => {
+      await this.executeBackgroundFetch(backgroundSources);
+    }, 5000); // 5秒後に開始
+  }
+
+  // バックグラウンド処理の実行
+  private static async executeBackgroundFetch(sources: DataSourceConfig[]): Promise<void> {
+    const newBusinesses: Business[] = [];
+    
+    for (let i = 0; i < sources.length; i++) {
+      const source = sources[i];
+      const status = this.getBackgroundStatus();
+      
+      // 処理が停止されている場合は中断
+      if (!status.isRunning) {
+        console.log('🛑 バックグラウンド処理が停止されました');
+        break;
+      }
+      
+      console.log(`🔗 バックグラウンド処理: ${source.name} (${i + 1}/${sources.length})`);
+      
+      const maxPages = source.maxPages || 1;
+      const perPage = source.perPage || 50;
+      
+      for (let page = 1; page <= maxPages; page++) {
+        const url = `${source.baseUrl}&per_page=${perPage}&page=${page}`;
+        
+        // URL重複チェック
+        if (this.getFetchedUrls().has(url) && !this.shouldRefetchUrl(url)) {
+          console.log(`⏭️ バックグラウンド: スキップ (既取得): ${url}`);
+          continue;
+        }
+        
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'BusinessScoutingTool/1.0'
+            }
+          });
+
+          if (response.ok) {
+            const apiData = await response.json();
+            const sourceData = this.parseAPIResponse(apiData, `${source.name}-bg-p${page}`);
+            
+            const filteredData = sourceData.filter(business => 
+              this.isJapaneseCompany(business.name, business.location) && 
+              !this.isAnySampleData(business.name, business.website_url) &&
+              this.isRealCompany(business.name)
+            );
+            
+            if (filteredData.length > 0) {
+              newBusinesses.push(...filteredData);
+              console.log(`✅ バックグラウンド: ${source.name} から${filteredData.length}社取得`);
+              this.saveFetchedUrl(url);
+              
+              // データを即座に蓄積
+              DataStorageService.addBusinessData(filteredData);
+            }
+          }
+          
+        } catch (error) {
+          console.error(`❌ バックグラウンド処理エラー (${source.name}):`, error);
+          status.errors.push(`${source.name}: ${error}`);
+        }
+        
+        // 長い待機時間（API制限とサーバー負荷を考慮）
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      
+      // 進捗を更新
+      const updatedStatus: BackgroundFetchStatus = {
+        ...status,
+        currentIndex: i,
+        completedSources: i + 1,
+        lastUpdate: new Date().toISOString()
+      };
+      
+      this.saveBackgroundStatus(updatedStatus);
+      
+      // ソース間の待機時間
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    
+    // バックグラウンド処理完了
+    const finalStatus: BackgroundFetchStatus = {
+      isRunning: false,
+      currentIndex: sources.length,
+      totalSources: sources.length,
+      completedSources: sources.length,
+      lastUpdate: new Date().toISOString(),
+      errors: this.getBackgroundStatus().errors
+    };
+    
+    this.saveBackgroundStatus(finalStatus);
+    console.log(`🎉 バックグラウンド処理完了: ${newBusinesses.length}社を追加取得`);
+  }
+
+  // バックグラウンド処理の停止
+  static stopBackgroundFetch(): void {
+    const status = this.getBackgroundStatus();
+    status.isRunning = false;
+    this.saveBackgroundStatus(status);
+    console.log('🛑 バックグラウンド処理を停止しました');
+  }
+
+  // バックグラウンド処理の状態取得
+  static getBackgroundFetchStatus(): BackgroundFetchStatus {
+    return this.getBackgroundStatus();
   }
 
   // 実在企業かどうかの判定
@@ -284,86 +462,6 @@ export class BusinessDataService {
     return businesses;
   }
 
-  // 明確にラベル付けされたサンプルデータを生成
-  private static generateClearlyLabeledSampleData(count: number): Business[] {
-    const industries = ['IT・情報サービス', '建設業', '製造業', '商業・卸売', 'サービス業'];
-    const prefectures = ['東京都', '大阪府', '愛知県', '神奈川県', '埼玉県'];
-    
-    const businesses: Business[] = [];
-    
-    // まず実在企業シードを使用（これらはサンプルではない）
-    REAL_COMPANY_SEEDS.forEach((seed, index) => {
-      businesses.push({
-        id: Date.now() + index,
-        name: `${seed.name}株式会社`,
-        industry: seed.industry,
-        location: seed.location,
-        website_url: seed.website,
-        has_website: true,
-        overall_score: Math.floor(Math.random() * 30) + 70,
-        technical_score: Math.floor(Math.random() * 30) + 60,
-        eeat_score: Math.floor(Math.random() * 30) + 70,
-        content_score: Math.floor(Math.random() * 30) + 65,
-        ai_content_score: Math.random() * 0.2, // 大手企業は低AI率
-        description: `${seed.industry}の大手企業`,
-        last_analyzed: new Date().toISOString().split('T')[0],
-        is_new: true,
-        data_source: '実在企業データ'
-      });
-    });
-    
-    // 残りは明確にサンプルとわかる企業を生成
-    for (let i = businesses.length; i < count; i++) {
-      const industry = industries[Math.floor(Math.random() * industries.length)];
-      const location = prefectures[Math.floor(Math.random() * prefectures.length)];
-      const hasWebsite = Math.random() > 0.3;
-      
-      businesses.push({
-        id: Date.now() + i + 1000,
-        name: `【サンプル】${this.generateCompanyName()}株式会社`,
-        industry,
-        location,
-        website_url: hasWebsite ? `https://sample-demo-${i}.example.com` : null,
-        has_website: hasWebsite,
-        overall_score: hasWebsite ? Math.floor(Math.random() * 50) + 30 : 0,
-        technical_score: hasWebsite ? Math.floor(Math.random() * 50) + 25 : 0,
-        eeat_score: hasWebsite ? Math.floor(Math.random() * 50) + 30 : 0,
-        content_score: hasWebsite ? Math.floor(Math.random() * 50) + 25 : 0,
-        ai_content_score: hasWebsite ? Math.random() * 0.5 + 0.4 : null,
-        description: `${industry}を営む企業（サンプルデータ）`,
-        last_analyzed: new Date().toISOString().split('T')[0],
-        is_new: true,
-        data_source: 'サンプルデータ'
-      });
-    }
-    
-    return businesses;
-  }
-
-  // ランダムな企業名を生成
-  private static generateCompanyName(): string {
-    const prefixes = ['アース', 'サン', 'ムーン', 'スカイ', 'オーシャン', 'マウンテン', 'リバー', 'フォレスト', 'スター', 'クラウド'];
-    const suffixes = ['テック', 'システム', 'ソリューション', '工業', '商事', 'サービス', '企画', '開発', 'コーポレーション', 'インダストリー'];
-    
-    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-    
-    return `${prefix}${suffix}`;
-  }
-
-  // サンプルデータ判定メソッド（更新）
-  private static isSampleData(name: string): boolean {
-    const samplePatterns = [
-      'サンプル', 'テスト', 'デモ', 'モック', 'sample', 'test', 'demo', 'mock',
-      'example', '例', 'ダミー', 'dummy'
-    ];
-    
-    const nameLower = name.toLowerCase();
-    return samplePatterns.some(pattern => 
-      nameLower.includes(pattern) || name.includes(pattern)
-    );
-  }
-
   // 日本企業判定の強化
   private static isJapaneseCompany(name: string, location: string): boolean {
     const nameLower = name.toLowerCase();
@@ -393,61 +491,6 @@ export class BusinessDataService {
     );
     
     return (hasJapanese || hasJapanesePattern || isInJapan);
-  }
-
-  // 実際のAPIデータ取得（改善版）
-  private static async fetchRealAPIData(source: DataSourceConfig): Promise<Business[]> {
-    try {
-      console.log(`🔗 ${source.name}にリクエスト送信...`);
-      console.log(`📡 URL: ${source.baseUrl}`);
-      
-      const response = await fetch(source.baseUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'BusinessScoutingTool/1.0'
-        }
-      });
-
-      console.log(`📊 ${source.name} レスポンス状況:`, {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (!response.ok) {
-        console.log(`⚠️ ${source.name}: HTTP ${response.status} - ${response.statusText}`);
-        
-        // CORS エラーの可能性をチェック
-        if (response.status === 0 || response.type === 'opaque') {
-          console.log(`🚫 CORS エラーの可能性: ${source.name}`);
-        }
-        
-        return [];
-      }
-
-      const apiData = await response.json();
-      console.log(`📦 ${source.name}からのレスポンス構造:`, {
-        keys: Object.keys(apiData),
-        dataType: typeof apiData,
-        isArray: Array.isArray(apiData),
-        length: Array.isArray(apiData) ? apiData.length : 'N/A'
-      });
-      
-      return this.parseAPIResponse(apiData, source.name);
-      
-    } catch (error) {
-      console.error(`❌ ${source.name} APIエラー:`, error);
-      
-      // ネットワークエラーの詳細分析
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error(`🌐 ネットワーク接続エラー: ${source.name}`);
-        console.error(`💡 CORS制限またはネットワーク問題の可能性があります`);
-      }
-      
-      return [];
-    }
   }
 
   // API応答の解析
@@ -546,7 +589,7 @@ export class BusinessDataService {
     }
   }
 
-  // 業界コードのマッピング
+  // その他のメソッドは既存のものを維持
   private static mapIndustryCode(code: string | number): string {
     const industryMap: Record<string, string> = {
       '01': '農業',
@@ -565,7 +608,6 @@ export class BusinessDataService {
     return industryMap[String(code)] || 'その他';
   }
 
-  // 所在地の正規化
   private static normalizeLocation(location: string): string {
     if (!location) return '日本';
     
@@ -587,7 +629,6 @@ export class BusinessDataService {
     return location.length > 20 ? location.substring(0, 20) : location;
   }
 
-  // テキストから業界を推定
   private static extractIndustryFromText(text: string): string {
     const industryKeywords = {
       'IT・情報サービス': ['IT', 'システム', 'ソフト', 'プログラム', '情報', 'tech', 'software', 'digital'],
@@ -615,6 +656,7 @@ export class BusinessDataService {
     // URL履歴もクリア
     localStorage.removeItem(URL_HISTORY_KEY);
     localStorage.removeItem(LAST_FETCH_DATE_KEY);
+    localStorage.removeItem(BACKGROUND_FETCH_KEY);
     console.log('全データと履歴を削除しました');
   }
 

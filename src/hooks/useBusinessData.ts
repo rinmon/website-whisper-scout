@@ -9,6 +9,28 @@ export const useBusinessData = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isDataCleared, setIsDataCleared] = useState(false);
 
+  // バックグラウンド処理の状態監視
+  useEffect(() => {
+    const checkBackgroundStatus = () => {
+      const bgStatus = BusinessDataService.getBackgroundFetchStatus();
+      if (bgStatus.isRunning) {
+        // バックグラウンド処理中は定期的にデータを更新
+        const interval = setInterval(() => {
+          const newStatus = BusinessDataService.getBackgroundFetchStatus();
+          if (!newStatus.isRunning) {
+            clearInterval(interval);
+            // バックグラウンド処理完了時にデータを更新
+            refreshData();
+          }
+        }, 5000);
+        
+        return () => clearInterval(interval);
+      }
+    };
+
+    checkBackgroundStatus();
+  }, [refreshTrigger]);
+
   const {
     data: businesses = [],
     isLoading,
@@ -58,7 +80,7 @@ export const useBusinessData = () => {
     return await BusinessDataService.fetchIndustryAssociationData(industry);
   };
 
-  // 進捗付きデータ取得用のフック
+  // 進捗付きデータ取得用のフック（全国対応版）
   const fetchWithProgress = async (onProgress?: (status: string, current: number, total: number) => void) => {
     const newData = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
     // データが更新されたので状態をリセット
@@ -72,27 +94,41 @@ export const useBusinessData = () => {
     return DataStorageService.getDataStats();
   };
 
+  // バックグラウンド処理の状態を取得
+  const getBackgroundStatus = () => {
+    return BusinessDataService.getBackgroundFetchStatus();
+  };
+
+  // バックグラウンド処理を停止
+  const stopBackgroundFetch = () => {
+    BusinessDataService.stopBackgroundFetch();
+    refreshData();
+  };
+
   // データ削除機能を強化
   const clearAllData = async () => {
     console.log('🗑️ 全データ削除を実行開始');
     
-    // 1. クリア状態をセット
+    // 1. バックグラウンド処理を停止
+    BusinessDataService.stopBackgroundFetch();
+    
+    // 2. クリア状態をセット
     setIsDataCleared(true);
     
-    // 2. ストレージからデータを削除
+    // 3. ストレージからデータを削除
     DataStorageService.clearAllData();
     
-    // 3. サービス層のデータも削除
+    // 4. サービス層のデータも削除
     BusinessDataService.clearAllData();
     
-    // 4. React Queryのキャッシュを完全にクリア
+    // 5. React Queryのキャッシュを完全にクリア
     const queryClient = (window as any).queryClient;
     if (queryClient) {
       await queryClient.clear();
       console.log('📦 React Queryキャッシュをクリア');
     }
     
-    // 5. データリフレッシュ
+    // 6. データリフレッシュ
     refreshData();
     
     console.log('✅ 全データ削除完了');
@@ -119,6 +155,8 @@ export const useBusinessData = () => {
     fetchWithProgress,
     refetch,
     getDataStats,
+    getBackgroundStatus,
+    stopBackgroundFetch,
     clearAllData,
     removeSampleData,
     removeBusinessesByCondition

@@ -11,57 +11,17 @@ import DashboardLayout from "@/components/DashboardLayout";
 import LoginForm from "@/components/LoginForm";
 import StatsOverview from "@/components/StatsOverview";
 import ScoreDistributionChart from "@/components/ScoreDistributionChart";
+import DataSourceStatus from "@/components/DataSourceStatus";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-
-// モックデータ
-const mockBusinesses = [
-  {
-    id: 1,
-    name: "株式会社サンプル",
-    industry: "IT",
-    location: "東京都",
-    website_url: "https://sample.co.jp",
-    has_website: true,
-    overall_score: 2.1,
-    technical_score: 1.8,
-    eeat_score: 2.5,
-    content_score: 1.9,
-    ai_content_score: 0.85
-  },
-  {
-    id: 2,
-    name: "テスト商事株式会社",
-    industry: "商業",
-    location: "大阪府",
-    website_url: null,
-    has_website: false,
-    overall_score: 0,
-    technical_score: 0,
-    eeat_score: 0,
-    content_score: 0,
-    ai_content_score: null
-  },
-  {
-    id: 3,
-    name: "モダン技術株式会社",
-    industry: "IT",
-    location: "東京都",
-    website_url: "https://modern-tech.jp",
-    has_website: true,
-    overall_score: 4.2,
-    technical_score: 4.5,
-    eeat_score: 3.8,
-    content_score: 4.3,
-    ai_content_score: 0.15
-  }
-];
+import { useBusinessData } from "@/hooks/useBusinessData";
+import { Business } from "@/types/business";
 
 const Index = () => {
   const navigate = useNavigate();
   const { isLoggedIn, login, logout } = useAuth();
-  const [businesses, setBusinesses] = useState(mockBusinesses);
-  const [filteredBusinesses, setFilteredBusinesses] = useState(mockBusinesses);
+  const { businesses, isLoading, error, refreshData } = useBusinessData();
+  const [filteredBusinesses, setFilteredBusinesses] = useState<Business[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [industryFilter, setIndustryFilter] = useState("all");
   const [scoreFilter, setScoreFilter] = useState("all");
@@ -74,6 +34,16 @@ const Index = () => {
       description: "ご利用ありがとうございました",
     });
   };
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "データ取得エラー",
+        description: "企業データの取得に失敗しました",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   useEffect(() => {
     // フィルタリングロジック
@@ -143,8 +113,16 @@ const Index = () => {
             <Badge variant="outline" className="px-3 py-1">
               {filteredBusinesses.length} 件の企業
             </Badge>
+            {isLoading && (
+              <Badge variant="secondary" className="px-3 py-1">
+                データ取得中...
+              </Badge>
+            )}
           </div>
         </div>
+
+        {/* データソース状況 */}
+        <DataSourceStatus onRefresh={refreshData} />
 
         {/* 統計概要 */}
         <StatsOverview businesses={filteredBusinesses} />
@@ -163,19 +141,22 @@ const Index = () => {
                 placeholder="企業名で検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isLoading}
               />
-              <Select value={industryFilter} onValueChange={setIndustryFilter}>
+              <Select value={industryFilter} onValueChange={setIndustryFilter} disabled={isLoading}>
                 <SelectTrigger>
                   <SelectValue placeholder="業界選択" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全業界</SelectItem>
-                  <SelectItem value="IT">IT</SelectItem>
-                  <SelectItem value="商業">商業</SelectItem>
-                  <SelectItem value="製造業">製造業</SelectItem>
+                  <SelectItem value="IT">IT・情報サービス</SelectItem>
+                  <SelectItem value="建設業">建設業</SelectItem>
+                  <SelectItem value="農業">農業</SelectItem>
+                  <SelectItem value="商業">商業・卸売</SelectItem>
+                  <SelectItem value="サービス業">サービス業</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={scoreFilter} onValueChange={setScoreFilter}>
+              <Select value={scoreFilter} onValueChange={setScoreFilter} disabled={isLoading}>
                 <SelectTrigger>
                   <SelectValue placeholder="スコア別" />
                 </SelectTrigger>
@@ -190,12 +171,30 @@ const Index = () => {
               <Button 
                 onClick={() => navigate("/report")}
                 className="bg-gradient-to-r from-blue-600 to-purple-600"
+                disabled={isLoading}
               >
                 レポート生成
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* ローディング状態 */}
+        {isLoading && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div>
+                  <div className="font-medium">企業データを取得中...</div>
+                  <div className="text-sm text-muted-foreground">
+                    オープンデータソースから最新の企業情報を取得しています
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 企業リスト */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -259,6 +258,13 @@ const Index = () => {
                     </div>
                   )}
 
+                  {/* 企業詳細情報 */}
+                  {business.employee_count && (
+                    <div className="text-xs text-muted-foreground">
+                      従業員数: {business.employee_count} • 設立: {business.established_year}年
+                    </div>
+                  )}
+
                   <Button 
                     variant="outline" 
                     className="w-full"
@@ -272,7 +278,7 @@ const Index = () => {
           ))}
         </div>
 
-        {filteredBusinesses.length === 0 && (
+        {filteredBusinesses.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <div className="text-muted-foreground">該当する企業が見つかりませんでした。</div>
             <div className="text-sm text-muted-foreground mt-1">

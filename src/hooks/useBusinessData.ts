@@ -7,6 +7,7 @@ import { DataStorageService } from '@/services/dataStorageService';
 
 export const useBusinessData = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isDataCleared, setIsDataCleared] = useState(false);
 
   const {
     data: businesses = [],
@@ -16,6 +17,12 @@ export const useBusinessData = () => {
   } = useQuery({
     queryKey: ['businesses', refreshTrigger],
     queryFn: async () => {
+      // データがクリアされた直後は空配列を返す
+      if (isDataCleared) {
+        console.log('🚫 データクリア状態のため空配列を返します');
+        return [];
+      }
+
       // 蓄積されたデータを優先的に返す
       const accumulatedData = DataStorageService.getAccumulatedData();
       
@@ -30,9 +37,9 @@ export const useBusinessData = () => {
         return accumulatedData;
       }
       
-      // 蓄積データがない場合のみ新規取得
-      console.log('❌ 蓄積データなし、新規取得を開始');
-      return await BusinessDataService.fetchFromOpenSourcesWithProgress();
+      // 蓄積データがない場合は空配列を返す（自動取得を停止）
+      console.log('❌ 蓄積データなし、空配列を返します');
+      return [];
     },
     staleTime: 0, // キャッシュを無効化
     gcTime: 0, // ガベージコレクションも即座に
@@ -54,7 +61,8 @@ export const useBusinessData = () => {
   // 進捗付きデータ取得用のフック
   const fetchWithProgress = async (onProgress?: (status: string, current: number, total: number) => void) => {
     const newData = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
-    // データが更新されたのでリフレッシュ
+    // データが更新されたので状態をリセット
+    setIsDataCleared(false);
     refreshData();
     return newData;
   };
@@ -64,12 +72,30 @@ export const useBusinessData = () => {
     return DataStorageService.getDataStats();
   };
 
-  // データ削除機能
-  const clearAllData = () => {
-    console.log('🗑️ 全データ削除を実行');
+  // データ削除機能を強化
+  const clearAllData = async () => {
+    console.log('🗑️ 全データ削除を実行開始');
+    
+    // 1. クリア状態をセット
+    setIsDataCleared(true);
+    
+    // 2. ストレージからデータを削除
+    DataStorageService.clearAllData();
+    
+    // 3. サービス層のデータも削除
     BusinessDataService.clearAllData();
-    DataStorageService.clearAllData(); // ストレージからも削除
+    
+    // 4. React Queryのキャッシュを完全にクリア
+    const queryClient = (window as any).queryClient;
+    if (queryClient) {
+      await queryClient.clear();
+      console.log('📦 React Queryキャッシュをクリア');
+    }
+    
+    // 5. データリフレッシュ
     refreshData();
+    
+    console.log('✅ 全データ削除完了');
   };
 
   // サンプルデータ削除機能を追加

@@ -71,11 +71,17 @@ const DataSourceStatus = ({ onRefresh, onDataFetched }: DataSourceStatusProps) =
     }
   };
 
-  const handleClearAllData = () => {
+  const handleClearAllData = async () => {
     if (confirm('すべての蓄積データを削除しますか？この操作は取り消せません。')) {
-      clearAllData();
-      setCurrentStatus('すべてのデータを削除しました');
-      onRefresh(); // 画面を更新
+      setCurrentStatus('データを削除中...');
+      try {
+        await clearAllData();
+        setCurrentStatus('すべてのデータを削除しました');
+        onRefresh(); // 画面を更新
+      } catch (error) {
+        console.error('データ削除エラー:', error);
+        setCurrentStatus('データ削除に失敗しました');
+      }
       setTimeout(() => setCurrentStatus(''), 2000);
     }
   };

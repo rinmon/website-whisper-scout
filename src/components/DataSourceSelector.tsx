@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, Building2, Github, BarChart3, Star, Play } from "lucide-react";
+import { Database, Building2, FileText, BarChart3, Star, Play } from "lucide-react";
 
 interface DataSourceGroup {
   value: string;
@@ -25,42 +25,42 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
     {
       value: 'all',
       label: '全データソース',
-      description: '全国47都道府県の全データソース',
+      description: '全ての企業情報データソースから取得',
       icon: <Database className="h-5 w-5" />,
       color: 'bg-blue-500',
-      estimatedCount: '10,000+'
+      estimatedCount: '5,000+'
     },
     {
-      value: 'chamber',
-      label: '商工会議所',
-      description: '全国の商工会議所データ',
-      icon: <Building2 className="h-5 w-5" />,
+      value: 'nta',
+      label: '国税庁法人番号',
+      description: '全法人の基本情報（法人番号・住所）',
+      icon: <FileText className="h-5 w-5" />,
       color: 'bg-green-500',
-      estimatedCount: '3,000+'
+      estimatedCount: '2,000+'
     },
     {
-      value: 'github',
-      label: 'GitHub組織',
-      description: 'テック企業のGitHub組織データ',
-      icon: <Github className="h-5 w-5" />,
+      value: 'fuma',
+      label: 'FUMA（フーマ）',
+      description: '160万社の企業情報、検索制限なし',
+      icon: <Building2 className="h-5 w-5" />,
       color: 'bg-purple-500',
-      estimatedCount: '500+'
+      estimatedCount: '1,500+'
     },
     {
-      value: 'estat',
-      label: 'e-Stat API',
-      description: '政府統計データ（経済センサス）',
+      value: 'listed',
+      label: '上場企業特化',
+      description: 'Ullet・Yahoo!ファイナンスから財務情報',
       icon: <BarChart3 className="h-5 w-5" />,
       color: 'bg-orange-500',
-      estimatedCount: '1,000+'
+      estimatedCount: '800+'
     },
     {
       value: 'priority',
       label: '優先度高',
-      description: '優先度の高いデータソース（1-10）',
+      description: '信頼性の高いデータソース（1-3位）',
       icon: <Star className="h-5 w-5" />,
       color: 'bg-yellow-500',
-      estimatedCount: '2,000+'
+      estimatedCount: '3,000+'
     }
   ];
 
@@ -69,9 +69,9 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
   return (
     <Card>
       <CardHeader>
-        <CardTitle>データ取得設定</CardTitle>
+        <CardTitle>企業データ取得設定</CardTitle>
         <CardDescription>
-          取得するデータソースのカテゴリを選択してください
+          取得する企業情報データソースのカテゴリを選択してください
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -142,6 +142,37 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
             </div>
           </div>
         )}
+
+        {/* 利用可能なデータソース一覧 */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <h4 className="text-sm font-medium mb-3">利用可能なデータソース</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            <div className="p-2 bg-white rounded border">
+              <strong>国税庁法人番号公表サイト</strong><br />
+              全法人の基本情報
+            </div>
+            <div className="p-2 bg-white rounded border">
+              <strong>FUMA（フーマ）</strong><br />
+              160万社の企業情報
+            </div>
+            <div className="p-2 bg-white rounded border">
+              <strong>BIZMAPS</strong><br />
+              高鮮度な企業データ
+            </div>
+            <div className="p-2 bg-white rounded border">
+              <strong>Musubu（ムスブ）</strong><br />
+              無料30件まで取得可能
+            </div>
+            <div className="p-2 bg-white rounded border">
+              <strong>Ullet（ユーレット）</strong><br />
+              上場企業の財務データ
+            </div>
+            <div className="p-2 bg-white rounded border">
+              <strong>Yahoo!ファイナンス</strong><br />
+              上場企業の株価・財務
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

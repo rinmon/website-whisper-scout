@@ -1,14 +1,15 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, RotateCcw, Pause, Activity, MapPin } from "lucide-react";
+import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, Pause, Activity, MapPin } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
+import { CorporateDataService } from "@/services/corporateDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import DashboardLayout from "@/components/DashboardLayout";
 import JapanMap from "@/components/JapanMap";
-import EStatApiConfig from "@/components/EStatApiConfig";
 import DataSourceSelector from "@/components/DataSourceSelector";
 import type { ProgressCallback } from "@/services/businessDataService";
 
@@ -21,19 +22,10 @@ const DataSources = () => {
   const [selectedPrefectures, setSelectedPrefectures] = useState<string[]>([]);
   const [selectedDataSourceGroup, setSelectedDataSourceGroup] = useState<string>('all');
   
-  const { clearAllData, removeSampleData, removeGitHubData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
-  const dataSources = BusinessDataService.getAvailableDataSources();
+  const { clearAllData, removeSampleData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
+  const corporateDataSources = CorporateDataService.getAvailableDataSources();
   const dataStats = getDataStats();
   const prefectureStats = getPrefectureStats();
-
-  // データソースグループの定義
-  const dataSourceGroups = [
-    { value: 'all', label: '全データソース' },
-    { value: 'chamber', label: '商工会議所' },
-    { value: 'github', label: 'GitHub組織' },
-    { value: 'estat', label: 'e-Stat API' },
-    { value: 'priority', label: '優先度高' }
-  ];
 
   // バックグラウンド処理の状況を定期的に更新
   useEffect(() => {
@@ -57,41 +49,65 @@ const DataSources = () => {
     );
   };
 
-  const handleFullDataFetch = async () => {
+  const handleCorporateDataFetch = async () => {
     if (isRunning) return;
     
     setIsRunning(true);
     setProgress(0);
-    setCurrentStatus(`${getSelectedGroupLabel()}の詳細取得を開始...`);
+    setCurrentStatus(`${getSelectedGroupLabel()}の企業情報取得を開始...`);
     setFetchResults(null);
     
     const startTime = Date.now();
 
-    const progressCallback: ProgressCallback = (status: string, current: number, total: number) => {
+    const progressCallback = (status: string, current: number, total: number) => {
       setCurrentStatus(status);
       setProgress(total > 0 ? (current / total) * 100 : 0);
     };
 
     try {
-      let businesses;
+      let corporateData;
       
       // 選択されたグループに応じて取得方法を変更
       switch (selectedDataSourceGroup) {
-        case 'chamber':
-          businesses = await BusinessDataService.fetchByGroup('chamber', progressCallback);
+        case 'nta':
+          corporateData = await CorporateDataService.fetchFromNTA();
           break;
-        case 'github':
-          businesses = await BusinessDataService.fetchByGroup('github', progressCallback);
+        case 'fuma':
+          corporateData = await CorporateDataService.fetchFromFUMA();
           break;
-        case 'estat':
-          businesses = await BusinessDataService.fetchByGroup('estat', progressCallback);
+        case 'listed':
+          // 上場企業特化データ取得（後で実装）
+          corporateData = await CorporateDataService.fetchFromFUMA('上場企業');
           break;
         case 'priority':
-          businesses = await BusinessDataService.fetchByGroup('priority', progressCallback);
+          corporateData = await CorporateDataService.fetchFromAllSources(progressCallback);
           break;
         default:
-          businesses = await BusinessDataService.fetchFromOpenSourcesWithProgress(progressCallback);
+          corporateData = await CorporateDataService.fetchFromAllSources(progressCallback);
       }
+      
+      // 企業情報をBusinessオブジェクトに変換
+      const businesses = corporateData.map((corp, index) => ({
+        id: Date.now() + index,
+        name: corp.name,
+        website_url: corp.website || '',
+        has_website: !!corp.website,
+        prefecture: corp.prefecture || '不明',
+        industry: corp.industry || '不明',
+        employees: corp.employees || '不明',
+        capital: corp.capital || '不明',
+        phone: corp.phone || '',
+        address: corp.address || '',
+        data_source: corp.source,
+        overall_score: corp.website ? Math.random() * 5 : 0,
+        is_new: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+
+      // データストレージに保存
+      const { DataStorageService } = await import('@/services/dataStorageService');
+      DataStorageService.addBusinesses(businesses);
       
       const endTime = Date.now();
       const duration = Math.round((endTime - startTime) / 1000);
@@ -101,12 +117,12 @@ const DataSources = () => {
         time: `${duration}秒`
       });
       
-      setCurrentStatus(`${getSelectedGroupLabel()}取得完了！継続的バックグラウンド処理中...`);
+      setCurrentStatus(`${getSelectedGroupLabel()}取得完了！`);
       refreshData();
       
     } catch (error) {
-      console.error('データ取得エラー:', error);
-      setCurrentStatus('データ取得に失敗しました');
+      console.error('企業データ取得エラー:', error);
+      setCurrentStatus('企業データ取得に失敗しました');
     } finally {
       setIsRunning(false);
       setTimeout(() => {
@@ -119,9 +135,9 @@ const DataSources = () => {
   const getSelectedGroupLabel = () => {
     const dataSourceGroups = [
       { value: 'all', label: '全データソース' },
-      { value: 'chamber', label: '商工会議所' },
-      { value: 'github', label: 'GitHub組織' },
-      { value: 'estat', label: 'e-Stat API' },
+      { value: 'nta', label: '国税庁法人番号' },
+      { value: 'fuma', label: 'FUMA（フーマ）' },
+      { value: 'listed', label: '上場企業特化' },
       { value: 'priority', label: '優先度高' }
     ];
     const group = dataSourceGroups.find(g => g.value === selectedDataSourceGroup);
@@ -164,21 +180,6 @@ const DataSources = () => {
     }
   };
 
-  const handleRemoveGitHubData = () => {
-    if (confirm('GitHub組織検索で取得したサンプルデータを削除しますか？')) {
-      setCurrentStatus('GitHubサンプルデータを削除中...');
-      try {
-        removeGitHubData();
-        setCurrentStatus('GitHubサンプルデータを削除しました');
-        refreshData();
-      } catch (error) {
-        console.error('GitHubデータ削除エラー:', error);
-        setCurrentStatus('GitHubデータ削除に失敗しました');
-      }
-      setTimeout(() => setCurrentStatus(''), 2000);
-    }
-  };
-
   const getStatusIcon = (type: string, enabled: boolean = true) => {
     if (!enabled) return <Clock className="h-4 w-4 text-gray-400" />;
     
@@ -210,8 +211,8 @@ const DataSources = () => {
   };
 
   const getPriorityColor = (priority: number) => {
-    if (priority <= 5) return 'bg-green-100 border-green-300';
-    if (priority <= 10) return 'bg-blue-100 border-blue-300';
+    if (priority <= 2) return 'bg-green-100 border-green-300';
+    if (priority <= 4) return 'bg-blue-100 border-blue-300';
     return 'bg-gray-100 border-gray-300';
   };
 
@@ -220,18 +221,18 @@ const DataSources = () => {
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">データソース管理</h1>
+            <h1 className="text-3xl font-bold">企業データソース管理</h1>
             <p className="text-muted-foreground">
-              全国47都道府県のデータソース設定と取得状況
+              信頼性の高い企業情報データソースの設定と取得状況
             </p>
           </div>
         </div>
 
-        {/* 改善されたデータソース選択UI */}
+        {/* 企業データソース選択UI */}
         <DataSourceSelector
           selectedGroup={selectedDataSourceGroup}
           onGroupSelect={setSelectedDataSourceGroup}
-          onStartFetch={handleFullDataFetch}
+          onStartFetch={handleCorporateDataFetch}
           isRunning={isRunning}
         />
 
@@ -243,9 +244,6 @@ const DataSources = () => {
             Object.entries(prefectureStats).map(([pref, stats]) => [pref, stats.total])
           )}
         />
-
-        {/* e-Stat API設定 */}
-        <EStatApiConfig />
 
         {/* 進捗とステータス */}
         <Card>
@@ -276,33 +274,15 @@ const DataSources = () => {
               </div>
             )}
 
-            {/* バックグラウンド処理状況 */}
-            {backgroundStatus?.isRunning && (
-              <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-500">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center">
-                    <Activity className="h-4 w-4 text-green-500 mr-2" />
-                    <span className="text-sm font-medium text-green-900">
-                      バックグラウンド処理中 - 地方都市データ取得
-                    </span>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleStopBackground}
-                  >
-                    <Pause className="mr-2 h-4 w-4" />
-                    停止
-                  </Button>
+            {/* 取得結果表示 */}
+            {fetchResults && (
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  <span className="text-sm font-medium text-green-900">
+                    取得完了: {fetchResults.total}社 (処理時間: {fetchResults.time})
+                  </span>
                 </div>
-                <Progress 
-                  value={backgroundStatus.totalSources > 0 ? 
-                    (backgroundStatus.completedSources / backgroundStatus.totalSources) * 100 : 0} 
-                  className="h-2" 
-                />
-                <p className="text-xs text-green-800 mt-1">
-                  {backgroundStatus.completedSources} / {backgroundStatus.totalSources} 都道府県完了
-                </p>
               </div>
             )}
 
@@ -318,15 +298,6 @@ const DataSources = () => {
                 サンプル削除
               </Button>
               <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRemoveGitHubData}
-                disabled={isRunning}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                GitHub削除
-              </Button>
-              <Button 
                 variant="destructive" 
                 size="sm" 
                 onClick={handleClearAllData}
@@ -339,20 +310,20 @@ const DataSources = () => {
           </CardContent>
         </Card>
 
-        {/* 全データソース一覧 */}
+        {/* 企業データソース一覧 */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <MapPin className="mr-2 h-5 w-5" />
-              全国データソース一覧（{dataSources.length}件）
+              企業データソース一覧（{corporateDataSources.length}件）
             </CardTitle>
             <CardDescription>
-              全47都道府県対応のデータソース設定
+              信頼性の高い企業情報データソース
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dataSources.map((source, index) => (
+              {corporateDataSources.map((source, index) => (
                 <div 
                   key={index} 
                   className={`p-4 border rounded-lg ${getPriorityColor(source.priority)}`}
@@ -366,8 +337,8 @@ const DataSources = () => {
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>優先度: {source.priority}</div>
-                    <div>最大ページ: {source.maxPages || 1}</div>
-                    <div>1ページ件数: {source.perPage || 100}</div>
+                    <div>最大取得件数: {source.maxRecords}</div>
+                    <div>URL: {source.url}</div>
                     <div className="truncate">{source.description}</div>
                   </div>
                 </div>

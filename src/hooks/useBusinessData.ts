@@ -94,6 +94,11 @@ export const useBusinessData = () => {
     return DataStorageService.getDataStats();
   };
 
+  // 都道府県別統計を取得
+  const getPrefectureStats = () => {
+    return DataStorageService.getPrefectureStats();
+  };
+
   // バックグラウンド処理の状態を取得
   const getBackgroundStatus = () => {
     return BusinessDataService.getBackgroundFetchStatus();
@@ -115,7 +120,7 @@ export const useBusinessData = () => {
     // 2. クリア状態をセット
     setIsDataCleared(true);
     
-    // 3. ストレージからデータを削除
+    // 3. ストレージからデータを削除（強化版）
     DataStorageService.clearAllData();
     
     // 4. サービス層のデータも削除
@@ -136,7 +141,7 @@ export const useBusinessData = () => {
 
   // サンプルデータ削除機能を追加
   const removeSampleData = () => {
-    BusinessDataService.removeSampleData();
+    DataStorageService.removeSampleData();
     refreshData();
   };
 
@@ -155,6 +160,7 @@ export const useBusinessData = () => {
     fetchWithProgress,
     refetch,
     getDataStats,
+    getPrefectureStats,
     getBackgroundStatus,
     stopBackgroundFetch,
     clearAllData,

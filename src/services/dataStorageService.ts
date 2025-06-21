@@ -1,3 +1,4 @@
+
 import { Business } from '@/types/business';
 
 export class DataStorageService {
@@ -196,11 +197,46 @@ export class DataStorageService {
     return stats;
   }
 
-  // データを完全削除
+  // データを完全削除（強化版）
   static clearAllData(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
-    localStorage.removeItem(this.LAST_UPDATED_KEY);
-    console.log('蓄積データを完全削除しました');
+    try {
+      // ローカルストレージから削除
+      localStorage.removeItem(this.STORAGE_KEY);
+      localStorage.removeItem(this.LAST_UPDATED_KEY);
+      
+      // 関連するキャッシュも削除
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('business') || key.includes('github') || key.includes('sample'))) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log(`🗑️ 削除: ${key}`);
+      });
+      
+      // セッションストレージも確認して削除
+      if (typeof sessionStorage !== 'undefined') {
+        const sessionKeysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && (key.includes('business') || key.includes('github') || key.includes('sample'))) {
+            sessionKeysToRemove.push(key);
+          }
+        }
+        sessionKeysToRemove.forEach(key => {
+          sessionStorage.removeItem(key);
+          console.log(`🗑️ セッション削除: ${key}`);
+        });
+      }
+      
+      console.log('✅ 蓄積データを完全削除しました');
+    } catch (error) {
+      console.error('データ削除エラー:', error);
+    }
   }
 
   // 特定条件のデータを削除
@@ -210,6 +246,18 @@ export class DataStorageService {
     this.saveData(filtered);
     console.log(`条件に該当する${data.length - filtered.length}件を削除しました`);
     return filtered;
+  }
+
+  // サンプルデータやテストデータを削除
+  static removeSampleData(): Business[] {
+    return this.removeBusinessesByCondition(business => 
+      business.name.includes('GitHub') ||
+      business.name.includes('サンプル') ||
+      business.name.includes('テスト') ||
+      business.name.includes('Test') ||
+      business.data_source === 'sample' ||
+      business.data_source === 'mock'
+    );
   }
 
   // データのエクスポート
@@ -237,5 +285,39 @@ export class DataStorageService {
       console.error('データインポートエラー:', error);
       return false;
     }
+  }
+
+  // 都道府県別データ統計を取得
+  static getPrefectureStats(): Record<string, { total: number; withWebsite: number; avgScore: number; topIndustry: string }> {
+    const data = this.getAccumulatedData();
+    const prefectureStats: Record<string, { total: number; withWebsite: number; scores: number[]; industries: Record<string, number> }> = {};
+    
+    data.forEach(business => {
+      const prefecture = business.location;
+      if (!prefectureStats[prefecture]) {
+        prefectureStats[prefecture] = { total: 0, withWebsite: 0, scores: [], industries: {} };
+      }
+      
+      prefectureStats[prefecture].total++;
+      if (business.has_website) prefectureStats[prefecture].withWebsite++;
+      prefectureStats[prefecture].scores.push(business.overall_score);
+      prefectureStats[prefecture].industries[business.industry] = (prefectureStats[prefecture].industries[business.industry] || 0) + 1;
+    });
+    
+    // 統計を計算
+    const result: Record<string, { total: number; withWebsite: number; avgScore: number; topIndustry: string }> = {};
+    Object.entries(prefectureStats).forEach(([prefecture, stats]) => {
+      const avgScore = stats.scores.length > 0 ? stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length : 0;
+      const topIndustry = Object.entries(stats.industries).sort(([,a], [,b]) => b - a)[0]?.[0] || '不明';
+      
+      result[prefecture] = {
+        total: stats.total,
+        withWebsite: stats.withWebsite,
+        avgScore,
+        topIndustry
+      };
+    });
+    
+    return result;
   }
 }

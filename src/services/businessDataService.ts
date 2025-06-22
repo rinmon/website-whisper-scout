@@ -1,3 +1,4 @@
+
 import { Business } from '@/types/business';
 import { CorporateDataService, CorporateInfo } from './corporateDataService';
 
@@ -40,8 +41,6 @@ export class BusinessDataService {
       has_website: true,
       location: region,
       industry: 'サービス業',
-      employees: '10-50人',
-      capital: '1000万円',
       phone: '03-1234-5678',
       address: '東京都港区',
       data_source: '商工会議所',
@@ -78,8 +77,6 @@ export class BusinessDataService {
         has_website: !!data.blog,
         location: data.location || '不明',
         industry: 'ソフトウェア',
-        employees: data.public_members_count ? `${data.public_members_count}人` : '不明',
-        capital: '不明',
         phone: '不明',
         address: data.location || '不明',
         data_source: 'github',
@@ -126,8 +123,6 @@ export class BusinessDataService {
         has_website: true,
         location: 'GitHub組織検索',
         industry: 'ソフトウェア',
-        employees: '不明',
-        capital: '不明',
         phone: '不明',
         address: '不明',
         data_source: 'github_search',
@@ -157,7 +152,7 @@ export class BusinessDataService {
     
     const allBusinesses: Business[] = [];
     let currentStep = 0;
-    const totalSteps = 3; // 企業データソース数
+    const totalSteps = 3;
 
     try {
       // 1. 企業データソースから取得
@@ -170,14 +165,16 @@ export class BusinessDataService {
         name: corp.name,
         website_url: corp.website || '',
         has_website: !!corp.website,
-        prefecture: corp.prefecture || '不明',
+        location: corp.prefecture || '不明',
         industry: corp.industry || '不明',
-        employees: corp.employees || '不明',
-        capital: corp.capital || '不明',
         phone: corp.phone || '',
         address: corp.address || '',
         data_source: corp.source,
         overall_score: corp.website ? Math.random() * 5 : 0,
+        technical_score: Math.random() * 5,
+        eeat_score: Math.random() * 5,
+        content_score: Math.random() * 5,
+        ai_content_score: Math.random() * 5,
         is_new: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -187,7 +184,7 @@ export class BusinessDataService {
 
       // 2. 商工会議所データを取得（全国）
       onProgress?.('商工会議所データを取得中...', currentStep++, totalSteps);
-      const regions = ['東京都', '大阪府', '愛知県', '福岡県']; // 主要地域
+      const regions = ['東京都', '大阪府', '愛知県', '福岡県'];
       for (const region of regions) {
         const chamberData = await BusinessDataService.fetchChamberOfCommerceData(region);
         allBusinesses.push(...chamberData);
@@ -195,7 +192,7 @@ export class BusinessDataService {
 
       // 3. GitHub Organizationデータを取得
       onProgress?.('GitHub Organizationデータを取得中...', currentStep++, totalSteps);
-      const githubOrgs = ['github', 'google', 'microsoft']; // 主要な組織
+      const githubOrgs = ['github', 'google', 'microsoft'];
       for (const orgName of githubOrgs) {
         const githubData = await BusinessDataService.fetchGitHubOrganizationData(orgName);
         allBusinesses.push(...githubData);

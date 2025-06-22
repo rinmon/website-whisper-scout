@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +8,11 @@ import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
+import { Business } from "@/types/business";
 
 interface DataSourceStatusProps {
   onRefresh: () => void;
-  onDataFetched?: (data: any[]) => void;
+  onDataFetched?: (data: Business[]) => void;
 }
 
 const DataSourceStatus = ({ onRefresh }: DataSourceStatusProps) => {

@@ -33,7 +33,7 @@ export const useBusinessData = () => {
     refetch
   } = useQuery({
     queryKey: ['businesses', refreshTrigger],
-    queryFn: async () => {
+    queryFn: async (): Promise<Business[]> => {
       if (!user) {
         return [];
       }

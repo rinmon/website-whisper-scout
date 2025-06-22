@@ -1,21 +1,7 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Building, Globe, AlertTriangle } from "lucide-react";
-
-interface Business {
-  id: number;
-  name: string;
-  industry: string;
-  location: string;
-  website_url: string | null;
-  has_website: boolean;
-  overall_score: number;
-  technical_score: number;
-  eeat_score: number;
-  content_score: number;
-  ai_content_score: number | null;
-}
+import { Business } from "@/types/business";
 
 interface StatsOverviewProps {
   businesses: Business[];
@@ -26,12 +12,12 @@ const StatsOverview = ({ businesses }: StatsOverviewProps) => {
   const totalBusinesses = businesses.length;
   const withWebsite = businesses.filter(b => b.has_website).length;
   const withoutWebsite = totalBusinesses - withWebsite;
-  const lowQuality = businesses.filter(b => b.has_website && b.overall_score < 2.5).length;
-  const mediumQuality = businesses.filter(b => b.has_website && b.overall_score >= 2.5 && b.overall_score < 3.5).length;
-  const highQuality = businesses.filter(b => b.has_website && b.overall_score >= 3.5).length;
+  const lowQuality = businesses.filter(b => b.has_website && (b.overall_score || 0) < 2.5).length;
+  const mediumQuality = businesses.filter(b => b.has_website && (b.overall_score || 0) >= 2.5 && (b.overall_score || 0) < 3.5).length;
+  const highQuality = businesses.filter(b => b.has_website && (b.overall_score || 0) >= 3.5).length;
   
   const avgScore = withWebsite > 0 ? 
-    businesses.filter(b => b.has_website).reduce((sum, b) => sum + b.overall_score, 0) / withWebsite : 0;
+    businesses.filter(b => b.has_website).reduce((sum, b) => sum + (b.overall_score || 0), 0) / withWebsite : 0;
 
   const businessOpportunities = withoutWebsite + lowQuality;
   const opportunityRate = totalBusinesses > 0 ? (businessOpportunities / totalBusinesses) * 100 : 0;
@@ -148,7 +134,8 @@ const StatsOverview = ({ businesses }: StatsOverviewProps) => {
           <div className="space-y-3">
             {Object.entries(
               businesses.reduce((acc, business) => {
-                acc[business.industry] = (acc[business.industry] || 0) + 1;
+                const industry = business.industry || '未分類';
+                acc[industry] = (acc[industry] || 0) + 1;
                 return acc;
               }, {} as Record<string, number>)
             ).map(([industry, count]) => (

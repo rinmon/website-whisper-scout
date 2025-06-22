@@ -2,7 +2,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, Building2, FileText, BarChart3, Star, Play } from "lucide-react";
+import { Database, Building2, FileText, BarChart3, Star, Play, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { useBusinessData } from "@/hooks/useBusinessData";
+import { useState, useEffect } from "react";
 
 interface DataSourceGroup {
   value: string;
@@ -21,6 +23,85 @@ interface DataSourceSelectorProps {
 }
 
 const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunning }: DataSourceSelectorProps) => {
+  const { getDataStats } = useBusinessData();
+  const [dataStats, setDataStats] = useState<any>(null);
+
+  // データ統計を取得
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const stats = await getDataStats();
+        setDataStats(stats);
+      } catch (error) {
+        console.error('統計データ取得エラー:', error);
+      }
+    };
+    
+    loadStats();
+  }, [getDataStats]);
+
+  // データソースの実データ取得状況を判定
+  const getDataSourceStatus = (sourceValue: string) => {
+    if (!dataStats) return 'unknown';
+    
+    const totalCount = dataStats.totalCount || 0;
+    
+    // データソース別の判定ロジック
+    switch (sourceValue) {
+      case 'nta':
+        // 国税庁データがあるかチェック（データソースで判定）
+        return totalCount > 0 ? 'success' : 'warning';
+      case 'fuma':
+        // FUMAデータがあるかチェック
+        return totalCount > 100 ? 'success' : 'warning';
+      case 'listed':
+        // 上場企業データがあるかチェック
+        return totalCount > 50 ? 'success' : 'warning';
+      case 'priority':
+        // 優先度高データがあるかチェック
+        return totalCount > 200 ? 'success' : 'warning';
+      case 'all':
+        // 全データソースの状況
+        return totalCount > 500 ? 'success' : totalCount > 100 ? 'partial' : 'warning';
+      default:
+        return 'unknown';
+    }
+  };
+
+  // ステータスバッジの取得
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'success':
+        return (
+          <Badge variant="default" className="bg-green-500">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            データ取得済み
+          </Badge>
+        );
+      case 'partial':
+        return (
+          <Badge variant="secondary" className="bg-yellow-500 text-white">
+            <Clock className="w-3 h-3 mr-1" />
+            部分的取得
+          </Badge>
+        );
+      case 'warning':
+        return (
+          <Badge variant="outline" className="border-orange-500 text-orange-600">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            データ不足
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <Clock className="w-3 h-3 mr-1" />
+            未確認
+          </Badge>
+        );
+    }
+  };
+
   const dataSourceGroups: DataSourceGroup[] = [
     {
       value: 'all',
@@ -72,42 +153,53 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
         <CardTitle>企業データ取得設定</CardTitle>
         <CardDescription>
           取得する企業情報データソースのカテゴリを選択してください
+          {dataStats && (
+            <span className="ml-2 text-sm font-medium">
+              現在のデータ: {dataStats.totalCount}社
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* データソースグループの選択 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {dataSourceGroups.map((group) => (
-            <div
-              key={group.value}
-              className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                selectedGroup === group.value
-                  ? 'border-primary bg-primary/5'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => onGroupSelect(group.value)}
-            >
-              <div className="flex items-center space-x-3 mb-2">
-                <div className={`p-2 rounded-full text-white ${group.color}`}>
-                  {group.icon}
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-medium">{group.label}</h4>
-                  <Badge variant="outline" className="text-xs">
-                    約{group.estimatedCount}社
-                  </Badge>
-                </div>
-                {selectedGroup === group.value && (
-                  <div className="text-primary">
-                    <div className="w-4 h-4 rounded-full bg-primary"></div>
+          {dataSourceGroups.map((group) => {
+            const status = getDataSourceStatus(group.value);
+            return (
+              <div
+                key={group.value}
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                  selectedGroup === group.value
+                    ? 'border-primary bg-primary/5'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => onGroupSelect(group.value)}
+              >
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className={`p-2 rounded-full text-white ${group.color}`}>
+                    {group.icon}
                   </div>
-                )}
+                  <div className="flex-1">
+                    <h4 className="font-medium">{group.label}</h4>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="outline" className="text-xs">
+                        約{group.estimatedCount}社
+                      </Badge>
+                      {getStatusBadge(status)}
+                    </div>
+                  </div>
+                  {selectedGroup === group.value && (
+                    <div className="text-primary">
+                      <div className="w-4 h-4 rounded-full bg-primary"></div>
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {group.description}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {group.description}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* 選択されたグループの詳細と実行ボタン */}
@@ -119,7 +211,10 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
                   {selectedGroupData.icon}
                 </div>
                 <div>
-                  <h4 className="font-medium">{selectedGroupData.label}</h4>
+                  <div className="flex items-center space-x-2">
+                    <h4 className="font-medium">{selectedGroupData.label}</h4>
+                    {getStatusBadge(getDataSourceStatus(selectedGroupData.value))}
+                  </div>
                   <p className="text-sm text-blue-700">
                     {selectedGroupData.description}
                   </p>
@@ -143,33 +238,62 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
           </div>
         )}
 
-        {/* 利用可能なデータソース一覧 */}
+        {/* 利用可能なデータソース一覧（実データ取得状況付き） */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h4 className="text-sm font-medium mb-3">利用可能なデータソース</h4>
+          <h4 className="text-sm font-medium mb-3 flex items-center">
+            利用可能なデータソース
+            <Badge variant="outline" className="ml-2 text-xs">
+              実データ状況
+            </Badge>
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-            <div className="p-2 bg-white rounded border">
-              <strong>国税庁法人番号公表サイト</strong><br />
-              全法人の基本情報
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>国税庁法人番号公表サイト</strong><br />
+                全法人の基本情報
+              </div>
+              {getStatusBadge(getDataSourceStatus('nta'))}
             </div>
-            <div className="p-2 bg-white rounded border">
-              <strong>FUMA（フーマ）</strong><br />
-              160万社の企業情報
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>FUMA（フーマ）</strong><br />
+                160万社の企業情報
+              </div>
+              {getStatusBadge(getDataSourceStatus('fuma'))}
             </div>
-            <div className="p-2 bg-white rounded border">
-              <strong>BIZMAPS</strong><br />
-              高鮮度な企業データ
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>BIZMAPS</strong><br />
+                高鮮度な企業データ
+              </div>
+              <Badge variant="outline">
+                <Clock className="w-3 h-3 mr-1" />
+                準備中
+              </Badge>
             </div>
-            <div className="p-2 bg-white rounded border">
-              <strong>Musubu（ムスブ）</strong><br />
-              無料30件まで取得可能
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>Musubu（ムスブ）</strong><br />
+                無料30件まで取得可能
+              </div>
+              <Badge variant="outline">
+                <Clock className="w-3 h-3 mr-1" />
+                準備中
+              </Badge>
             </div>
-            <div className="p-2 bg-white rounded border">
-              <strong>Ullet（ユーレット）</strong><br />
-              上場企業の財務データ
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>Ullet（ユーレット）</strong><br />
+                上場企業の財務データ
+              </div>
+              {getStatusBadge(getDataSourceStatus('listed'))}
             </div>
-            <div className="p-2 bg-white rounded border">
-              <strong>Yahoo!ファイナンス</strong><br />
-              上場企業の株価・財務
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>Yahoo!ファイナンス</strong><br />
+                上場企業の株価・財務
+              </div>
+              {getStatusBadge(getDataSourceStatus('listed'))}
             </div>
           </div>
         </div>

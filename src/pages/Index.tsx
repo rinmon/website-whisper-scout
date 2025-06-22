@@ -10,17 +10,17 @@ import StatsOverview from "@/components/StatsOverview";
 import ScoreDistributionChart from "@/components/ScoreDistributionChart";
 import DataSourceStatus from "@/components/DataSourceStatus";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useBusinessData } from "@/hooks/useBusinessData";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { isLoggedIn, login, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const { businesses, isLoading, error, refreshData } = useBusinessData();
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     toast({
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",
@@ -48,8 +48,8 @@ const Index = () => {
     }
   }, [error, toast]);
 
-  if (!isLoggedIn) {
-    return <LoginForm onLogin={login} />;
+  if (!user) {
+    return <LoginForm onLogin={() => {}} />;
   }
 
   return (

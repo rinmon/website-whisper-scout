@@ -2,41 +2,17 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface LoginFormProps {
   onLogin: () => void;
 }
 
 const LoginForm = ({ onLogin }: LoginFormProps) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    // デモ用のログイン処理
-    setTimeout(() => {
-      if (username && password) {
-        toast({
-          title: "ログイン成功",
-          description: `${username}さん、おかえりなさい！`,
-        });
-        onLogin();
-      } else {
-        toast({
-          title: "ログインエラー",
-          description: "ユーザー名とパスワードを入力してください",
-          variant: "destructive",
-        });
-      }
-      setIsLoading(false);
-    }, 1000);
+  const handleAuthRedirect = () => {
+    navigate("/auth");
   };
 
   return (
@@ -57,50 +33,25 @@ const LoginForm = ({ onLogin }: LoginFormProps) => {
           </div>
         </div>
 
-        {/* ログインフォーム */}
+        {/* 認証へのリダイレクト */}
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl">ログイン</CardTitle>
+            <CardTitle className="text-2xl">ログインが必要です</CardTitle>
             <CardDescription>
-              アカウント情報を入力してください
+              アカウントにログインまたは新規登録してください
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">ユーザー名</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="ユーザー名を入力"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">パスワード</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="パスワードを入力"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-                disabled={isLoading}
-              >
-                {isLoading ? "ログイン中..." : "ログイン"}
-              </Button>
-            </form>
+            <Button
+              onClick={handleAuthRedirect}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+            >
+              ログイン・新規登録
+            </Button>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                デモ用: 任意のユーザー名・パスワードでログインできます
+                認証ページにリダイレクトします
               </p>
             </div>
           </CardContent>

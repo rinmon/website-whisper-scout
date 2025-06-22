@@ -5,7 +5,7 @@
 
 ## プロジェクト情報
 
-**URL**: https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990
+**URL**: ローカル開発環境で実行中
 
 ## コードの編集方法
 
@@ -13,7 +13,7 @@
 
 **Lovableを使用**
 
-[Lovableプロジェクト](https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990)にアクセスして、プロンプトを入力してください。
+ローカル開発サーバーを起動して、プロンプトを入力してください。
 
 Lovableで行った変更は、このリポジトリに自動的にコミットされます。
 
@@ -66,7 +66,7 @@ npm run dev
 
 ## プロジェクトのデプロイ方法
 
-[Lovable](https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990)を開き、共有 → 公開をクリックするだけです。
+
 
 ## カスタムドメインの接続
 
@@ -74,7 +74,7 @@ npm run dev
 
 ドメインを接続するには、プロジェクト > 設定 > ドメインに移動し、「ドメインを接続」をクリックします。
 
-詳細については、[カスタムドメインの設定](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)をお読みください。
+
 
 ## 機能
 

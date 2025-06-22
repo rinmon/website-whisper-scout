@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +28,7 @@ const Index = () => {
   };
 
   // 手動データ取得の結果を処理
-  const handleDataFetched = (newData: Business[]) => {
+  const handleDataFetched = (newData: any[]) => {
     toast({
       title: "データ取得完了",
       description: `${newData.length}社の企業データを取得しました`,

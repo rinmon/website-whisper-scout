@@ -1,292 +1,312 @@
-
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DashboardLayout from "@/components/DashboardLayout";
-import ScoreHistoryChart from "@/components/ScoreHistoryChart";
-import ImprovementRecommendations from "@/components/ImprovementRecommendations";
-import TechnicalDetails from "@/components/TechnicalDetails";
-import CompetitorComparison from "@/components/CompetitorComparison";
-import { ArrowLeft, ExternalLink, Globe, Shield, Zap, FileText, TrendingUp, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import { useBusinessData } from "@/hooks/useBusinessData";
-
-// モック履歴データ
-const mockHistoryData = [
-  { date: "2024-01", overall_score: 1.8, technical_score: 1.5, eeat_score: 2.2, content_score: 1.6 },
-  { date: "2024-02", overall_score: 1.9, technical_score: 1.6, eeat_score: 2.3, content_score: 1.7 },
-  { date: "2024-03", overall_score: 2.0, technical_score: 1.7, eeat_score: 2.4, content_score: 1.8 },
-  { date: "2024-04", overall_score: 2.1, technical_score: 1.8, eeat_score: 2.5, content_score: 1.9 },
-];
+import DashboardLayout from "@/components/DashboardLayout";
+import { Business } from "@/types/business";
+import { WebsiteAnalysis } from "@/types/websiteAnalysis";
+import { SupabaseBusinessService } from "@/services/supabase/business";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 
 const BusinessDetail = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { id } = useParams<{ id: string }>();
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [websiteAnalysis, setWebsiteAnalysis] = useState<WebsiteAnalysis | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
-  const { logout } = useAuth();
-  const { businesses } = useBusinessData();
-  
-  // 蓄積された実際のデータから企業を検索（IDは文字列として比較）
-  const business = businesses.find(b => b.id === id);
 
-  // 前のページのクエリパラメータを保持
-  const previousSearchParams = location.state?.searchParams || '';
-
-  const handleBackToList = () => {
-    navigate(`/businesses${previousSearchParams}`);
+  const fetchBusiness = async (businessId: string) => {
+    setIsLoading(true);
+    try {
+      console.log('企業詳細を取得中:', businessId);
+      const business = await SupabaseBusinessService.getBusinessById(businessId);
+      if (business) {
+        setBusiness(business);
+        
+        // website_analysisも取得
+        const analysis = await SupabaseBusinessService.getWebsiteAnalysis(businessId);
+        setWebsiteAnalysis(analysis);
+      }
+    } catch (error) {
+      console.error('企業詳細取得エラー:', error);
+      toast({
+        title: "エラー",
+        description: "企業情報の取得に失敗しました",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (id) {
+      // URLパラメータのidは文字列なので、そのまま使用
+      const isValidId = typeof id === 'string' && id.trim() !== '';
+      if (isValidId) {
+        fetchBusiness(id);
+      }
+    }
+  }, [id]);
+
+  const handleAnalyze = async () => {
+    if (!business?.website_url) {
+      toast({
+        title: "エラー",
+        description: "ウェブサイトURLが見つかりません",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      console.log('ウェブサイト分析を開始:', business.website_url);
+      
+      // ここで実際の分析APIを呼び出す
+      // 現在はモック分析結果を生成
+      const mockAnalysis = {
+        id: business.id,
+        business_id: business.id,
+        overall_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        technical_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        content_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        user_experience_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        seo_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        performance_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        accessibility_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        security_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
+        mobile_compatibility: Math.random() > 0.3,
+        ssl_certificate: Math.random() > 0.2,
+        page_speed: Math.round(Math.random() * 3000 + 1000),
+        recommendations: [
+          "モバイル対応の改善が必要です",
+          "ページ読み込み速度の最適化をお勧めします",
+          "SEOメタタグの追加を検討してください"
+        ],
+        analyzed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Supabaseに分析結果を保存
+      await SupabaseBusinessService.saveWebsiteAnalysis(mockAnalysis);
+      
+      // 企業データも更新
+      const updatedBusiness = {
+        ...business,
+        overall_score: mockAnalysis.overall_score,
+        technical_score: mockAnalysis.technical_score,
+        content_score: mockAnalysis.content_score,
+        user_experience_score: mockAnalysis.user_experience_score,
+        seo_score: mockAnalysis.seo_score,
+        last_analyzed: mockAnalysis.analyzed_at
+      };
+      
+      await SupabaseBusinessService.updateBusiness(business.id, updatedBusiness);
+      
+      setBusiness(updatedBusiness);
+      setWebsiteAnalysis(mockAnalysis);
+      
+      toast({
+        title: "分析完了",
+        description: "ウェブサイトの分析が完了しました",
+      });
+    } catch (error) {
+      console.error('分析エラー:', error);
+      toast({
+        title: "分析エラー",
+        description: "ウェブサイトの分析に失敗しました",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div>
+                <div className="font-medium">企業情報を取得中...</div>
+                <div className="text-sm text-muted-foreground">
+                  データベースから企業情報を取得しています
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   if (!business) {
     return (
       <DashboardLayout>
-        <div className="text-center py-12">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">企業が見つかりません</h1>
-          <Button onClick={handleBackToList}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            企業一覧に戻る
-          </Button>
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <div className="font-medium">企業情報が見つかりません</div>
+              <div className="text-sm text-muted-foreground">
+                指定されたIDの企業情報が存在しないか、アクセス権がありません
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </DashboardLayout>
     );
-  };
+  }
 
-  const handleLogout = () => {
-    logout();
-    toast({
-      title: "ログアウトしました",
-      description: "ご利用ありがとうございました",
-    });
-    navigate("/");
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 3.5) return "text-green-600";
-    if (score >= 2.5) return "text-yellow-600";
-    if (score > 0) return "text-red-600";
-    return "text-gray-500";
-  };
-
-  const getAIContentBadge = (aiScore: number | null) => {
-    if (aiScore === null) return null;
-    if (aiScore >= 0.7) return <Badge variant="destructive">AI生成疑い</Badge>;
-    if (aiScore >= 0.3) return <Badge variant="secondary">AI混合</Badge>;
-    return <Badge variant="default">人間作成</Badge>;
-  };
+  const data = [
+    { name: '全体スコア', value: business.overall_score || 0 },
+    { name: '技術スコア', value: business.technical_score || 0 },
+    { name: 'コンテンツスコア', value: business.content_score || 0 },
+    { name: 'UXスコア', value: business.user_experience_score || 0 },
+    { name: 'SEOスコア', value: business.seo_score || 0 },
+  ];
 
   return (
-    <DashboardLayout onLogout={handleLogout}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={handleBackToList}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              企業一覧に戻る
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{business.name}</h1>
-              <p className="text-muted-foreground">{business.industry} • {business.location}</p>
-            </div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              {business.name}
+            </h1>
+            <p className="text-muted-foreground">
+              {business.catch_copy || "キャッチコピーが設定されていません"}
+            </p>
           </div>
-          {business.has_website && (
-            <Button variant="outline" asChild>
-              <a href={business.website_url} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                サイトを開く
-              </a>
-            </Button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* 左側: 企業基本情報 */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Globe className="mr-2 h-5 w-5" />
-                  企業情報
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">設立年:</span>
-                    <span className="text-sm font-medium">{business.established_year || '不明'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">従業員数:</span>
-                    <span className="text-sm font-medium">{business.employee_count || '不明'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">業界:</span>
-                    <Badge variant="outline">{business.industry}</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">所在地:</span>
-                    <span className="text-sm font-medium">{business.location}</span>
-                  </div>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">企業概要:</p>
-                  <p className="text-sm">{business.description}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 総合スコア（サイドバーに移動） */}
-            {business.has_website && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Zap className="mr-2 h-5 w-5" />
-                    総合スコア
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center">
-                    <div className={`text-3xl font-bold ${getScoreColor(business.overall_score || 0)}`}>
-                      {(business.overall_score || 0).toFixed(1)}
-                    </div>
-                    <div className="text-sm text-gray-600">/ 5.0</div>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="flex gap-2">
+            {business.is_new && (
+              <Badge variant="secondary" className="px-3 py-1">
+                新規企業
+              </Badge>
             )}
-          </div>
-
-          {/* 右側: タブ形式の詳細情報 */}
-          <div className="lg:col-span-3">
             {business.has_website ? (
-              <Tabs defaultValue="overview" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="overview">概要</TabsTrigger>
-                  <TabsTrigger value="history">履歴</TabsTrigger>
-                  <TabsTrigger value="technical">技術詳細</TabsTrigger>
-                  <TabsTrigger value="improvements">改善提案</TabsTrigger>
-                  <TabsTrigger value="competition">競合比較</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview" className="space-y-6">
-                  {/* 詳細スコア */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Shield className="mr-2 h-5 w-5" />
-                        詳細スコア
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium">技術力スコア</span>
-                          <span className={`text-sm font-bold ${getScoreColor(business.technical_score || 0)}`}>
-                            {(business.technical_score || 0).toFixed(1)}
-                          </span>
-                        </div>
-                        <Progress value={(business.technical_score || 0) * 20} className="h-3" />
-                        <p className="text-xs text-gray-600 mt-1">
-                          サイト速度、モバイル対応、セキュリティなどの技術的品質
-                        </p>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium">信頼性 (E-E-A-T)</span>
-                          <span className={`text-sm font-bold ${getScoreColor(business.eeat_score || 0)}`}>
-                            {(business.eeat_score || 0).toFixed(1)}
-                          </span>
-                        </div>
-                        <Progress value={(business.eeat_score || 0) * 20} className="h-3" />
-                        <p className="text-xs text-gray-600 mt-1">
-                          専門性、権威性、信頼性の評価
-                        </p>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm font-medium">コンテンツ品質</span>
-                          <span className={`text-sm font-bold ${getScoreColor(business.content_score || 0)}`}>
-                            {(business.content_score || 0).toFixed(1)}
-                          </span>
-                        </div>
-                        <Progress value={(business.content_score || 0) * 20} className="h-3" />
-                        <p className="text-xs text-gray-600 mt-1">
-                          情報の充実度、読みやすさ、有用性
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* AI分析結果 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <FileText className="mr-2 h-5 w-5" />
-                        AI分析結果
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">コンテンツ判定:</span>
-                        {getAIContentBadge(business.ai_content_score)}
-                      </div>
-                      <p className="text-xs text-gray-600 mt-2">
-                        AIによるコンテンツ生成の可能性: {((business.ai_content_score || 0) * 100).toFixed(0)}%
-                      </p>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="history">
-                  <ScoreHistoryChart data={mockHistoryData} />
-                </TabsContent>
-
-                <TabsContent value="technical">
-                  <TechnicalDetails businessId={business.id} />
-                </TabsContent>
-
-                <TabsContent value="improvements">
-                  <ImprovementRecommendations businessScore={business.overall_score || 0} />
-                </TabsContent>
-
-                <TabsContent value="competition">
-                  <CompetitorComparison 
-                    currentBusiness={{
-                      name: business.name,
-                      overall_score: business.overall_score || 0,
-                      industry: business.industry || '不明'
-                    }}
-                  />
-                </TabsContent>
-              </Tabs>
+              <Badge variant="outline" className="px-3 py-1">
+                ウェブサイトあり
+              </Badge>
             ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <div className="text-red-500 text-xl font-bold mb-2">ウェブサイトなし</div>
-                  <p className="text-gray-600 mb-4">
-                    この企業はウェブサイトを持っていません。
-                  </p>
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 mb-2">提案チャンス！</h3>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• ホームページ制作の提案</li>
-                      <li>• デジタルマーケティング支援</li>
-                      <li>• オンライン集客の改善</li>
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
+              <Badge variant="destructive" className="px-3 py-1">
+                ウェブサイトなし
+              </Badge>
             )}
           </div>
         </div>
+
+        {/* 企業情報 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>企業情報</CardTitle>
+            <CardDescription>
+              基本情報と連絡先
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm font-bold">会社名</div>
+              <div className="text-muted-foreground">{business.name}</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold">所在地</div>
+              <div className="text-muted-foreground">{business.address || "未登録"}</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold">電話番号</div>
+              <div className="text-muted-foreground">{business.phone_number || "未登録"}</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold">ウェブサイト</div>
+              {business.website_url ? (
+                <a href={business.website_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                  {business.website_url}
+                </a>
+              ) : (
+                <div className="text-muted-foreground">未登録</div>
+              )}
+            </div>
+            <div>
+              <div className="text-sm font-bold">設立日</div>
+              <div className="text-muted-foreground">{business.establishment_date || "未登録"}</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold">従業員数</div>
+              <div className="text-muted-foreground">{business.number_of_employees || "未登録"}</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* スコア */}
+        <Card>
+          <CardHeader>
+            <CardTitle>ウェブサイト分析</CardTitle>
+            <CardDescription>
+              AIによるウェブサイトの自動評価
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {websiteAnalysis ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm font-bold">全体スコア</div>
+                    <div className="text-2xl font-semibold">{websiteAnalysis.overall_score}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold">最終分析日</div>
+                    <div className="text-muted-foreground">{new Date(websiteAnalysis.analyzed_at).toLocaleDateString()}</div>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis domain={[0, 5]} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="text-sm text-muted-foreground">
+                  {websiteAnalysis.recommendations?.map((r, i) => (
+                    <div key={i}>• {r}</div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="text-muted-foreground">
+                  まだウェブサイトの分析が行われていません
+                </div>
+              </div>
+            )}
+            <Button 
+              className="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600"
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || !business.website_url}
+            >
+              {isAnalyzing ? "分析中..." : "ウェブサイトを分析する"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

@@ -1,73 +1,95 @@
-# Welcome to your Lovable project
 
-## Project info
+# クソサイト・スカウター
+
+企業のウェブサイト品質を分析し、ビジネスチャンスを発見するためのアプリケーションです。
+
+## プロジェクト情報
 
 **URL**: https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990
 
-## How can I edit this code?
+## コードの編集方法
 
-There are several ways of editing your application.
+このアプリケーションを編集する方法はいくつかあります。
 
-**Use Lovable**
+**Lovableを使用**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990) and start prompting.
+[Lovableプロジェクト](https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990)にアクセスして、プロンプトを入力してください。
 
-Changes made via Lovable will be committed automatically to this repo.
+Lovableで行った変更は、このリポジトリに自動的にコミットされます。
 
-**Use your preferred IDE**
+**お好みのIDEを使用**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+ローカル環境でお好みのIDEを使用したい場合は、このリポジトリをクローンして変更をプッシュできます。プッシュされた変更もLovableに反映されます。
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+必要な要件はNode.jsとnpmのインストールのみです - [nvmでインストール](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-Follow these steps:
+以下の手順に従ってください：
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# ステップ1: プロジェクトのGit URLを使用してリポジトリをクローンします。
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# ステップ2: プロジェクトディレクトリに移動します。
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
+# ステップ3: 必要な依存関係をインストールします。
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# ステップ4: 自動リロードとインスタントプレビュー付きの開発サーバーを起動します。
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+**GitHubで直接ファイルを編集**
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- 編集したいファイルに移動します。
+- ファイルビューの右上にある「Edit」ボタン（鉛筆アイコン）をクリックします。
+- 変更を行い、変更をコミットします。
 
-**Use GitHub Codespaces**
+**GitHub Codespacesを使用**
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- リポジトリのメインページに移動します。
+- 右上の「Code」ボタン（緑色のボタン）をクリックします。
+- 「Codespaces」タブを選択します。
+- 「New codespace」をクリックして新しいCodespace環境を起動します。
+- Codespace内で直接ファイルを編集し、完了したら変更をコミットしてプッシュします。
 
-## What technologies are used for this project?
+## このプロジェクトで使用されている技術
 
-This project is built with:
+このプロジェクトは以下の技術で構築されています：
 
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase
 
-## How can I deploy this project?
+## プロジェクトのデプロイ方法
 
-Simply open [Lovable](https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990) and click on Share -> Publish.
+[Lovable](https://lovable.dev/projects/e66027f6-c9cf-4728-b974-9afda5978990)を開き、共有 → 公開をクリックするだけです。
 
-## Can I connect a custom domain to my Lovable project?
+## カスタムドメインの接続
 
-Yes, you can!
+はい、可能です！
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+ドメインを接続するには、プロジェクト > 設定 > ドメインに移動し、「ドメインを接続」をクリックします。
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+詳細については、[カスタムドメインの設定](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)をお読みください。
+
+## 機能
+
+- 企業ウェブサイトの品質分析
+- ダッシュボードでの統計表示
+- 企業データの管理とフィルタリング
+- レポート生成機能
+- データソースの管理
+- ユーザー認証とアカウント管理
+
+## 分析項目
+
+- 全体スコア
+- 技術スコア（ページ速度、SSL証明書など）
+- コンテンツスコア
+- ユーザーエクスペリエンススコア
+- SEOスコア
+- E-E-A-T（専門性、権威性、信頼性）評価

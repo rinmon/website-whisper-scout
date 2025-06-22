@@ -1,21 +1,7 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
-
-interface Business {
-  id: number;
-  name: string;
-  industry: string;
-  location: string;
-  website_url: string | null;
-  has_website: boolean;
-  overall_score: number;
-  technical_score: number;
-  eeat_score: number;
-  content_score: number;
-  ai_content_score: number | null;
-}
+import { Business } from "@/types/business";
 
 interface ScoreDistributionChartProps {
   businesses: Business[];

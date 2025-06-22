@@ -52,7 +52,7 @@ export class SupabaseBusinessService {
       // 既存の企業データをチェック（名前と場所で重複チェック）
       const { data: existing } = await supabase
         .from('businesses')
-        .select('id, name, location, updated_at')
+        .select('*')
         .eq('name', business.name)
         .eq('location', business.location)
         .single();

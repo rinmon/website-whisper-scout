@@ -129,6 +129,18 @@ export const useBusinessData = () => {
     console.log('✅ 全データ削除完了');
   };
 
+  // 不足していたメソッドを追加
+  const removeSampleData = () => {
+    // サンプルデータの削除（現在は何もしない）
+    console.log('サンプルデータ削除機能は未実装です');
+  };
+
+  const getPrefectureStats = async () => {
+    // 都道府県別統計の取得
+    const stats = await getDataStats();
+    return stats.byLocation;
+  };
+
   return {
     businesses,
     isLoading,
@@ -140,12 +152,14 @@ export const useBusinessData = () => {
     getDataStats,
     getBackgroundStatus,
     stopBackgroundFetch,
-    clearAllData
+    clearAllData,
+    removeSampleData,
+    getPrefectureStats
   };
 };
 
 // 特定企業の詳細分析データを取得するフック
-export const useBusinessAnalysis = (businessId: number) => {
+export const useBusinessAnalysis = (businessId: string) => {
   return useQuery({
     queryKey: ['business-analysis', businessId],
     queryFn: async () => {

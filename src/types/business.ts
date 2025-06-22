@@ -19,6 +19,8 @@ export interface Business {
   last_analyzed?: string;
   is_new?: boolean; // 新規追加フラグ
   data_source?: string; // データソース情報
+  created_at?: string; // 作成日時
+  updated_at?: string; // 更新日時
 }
 
 export interface BusinessAnalysis {

@@ -190,13 +190,13 @@ const Index = () => {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-600">
-                  {businesses.filter(b => b.has_website && b.overall_score < 2.5).length}
+                  {businesses.filter(b => b.has_website && (b.overall_score || 0) < 2.5).length}
                 </div>
                 <div className="text-sm text-muted-foreground">低品質サイト</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-600">
-                  {businesses.filter(b => b.has_website && b.overall_score >= 2.5 && b.overall_score < 3.5).length}
+                  {businesses.filter(b => b.has_website && (b.overall_score || 0) >= 2.5 && (b.overall_score || 0) < 3.5).length}
                 </div>
                 <div className="text-sm text-muted-foreground">改善の余地あり</div>
               </div>

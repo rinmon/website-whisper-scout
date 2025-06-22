@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,7 @@ const DataSources = () => {
   const [selectedPrefectures, setSelectedPrefectures] = useState<string[]>([]);
   const [selectedDataSourceGroup, setSelectedDataSourceGroup] = useState<string>('all');
   const [dataStats, setDataStats] = useState<any>(null);
-  const [prefectureStats, setPrefectureStats] = useState<any>({});
+  const [prefectureStats, setPrefectureStats] = useState<Record<string, number>>({});
   
   const { clearAllData, removeSampleData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
   const corporateDataSources = CorporateDataService.getAvailableDataSources();
@@ -34,7 +35,8 @@ const DataSources = () => {
         setDataStats(stats);
         
         const prefStats = await getPrefectureStats();
-        setPrefectureStats(prefStats);
+        // Ensure prefStats is properly typed as Record<string, number>
+        setPrefectureStats(prefStats as Record<string, number>);
       } catch (error) {
         console.error('統計データ取得エラー:', error);
       }
@@ -104,7 +106,7 @@ const DataSources = () => {
       
       // 企業情報をBusinessオブジェクトに変換
       const businesses = corporateData.map((corp, index) => ({
-        id: Date.now() + index,
+        id: `${Date.now()}-${index}`, // 文字列IDを生成
         name: corp.name,
         website_url: corp.website || '',
         has_website: !!corp.website,
@@ -258,9 +260,7 @@ const DataSources = () => {
         <JapanMap
           selectedPrefectures={selectedPrefectures}
           onPrefectureSelect={handlePrefectureSelect}
-          businessData={Object.fromEntries(
-            Object.entries(prefectureStats).map(([pref, count]) => [pref, count])
-          )}
+          businessData={prefectureStats}
         />
 
         {/* 進捗とステータス */}

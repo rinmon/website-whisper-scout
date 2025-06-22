@@ -1,4 +1,3 @@
-
 import { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Settings, Home, Building, FileText, Database } from "lucide-react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -16,8 +16,8 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile, loading } = useUserProfile();
   const userPoints = 2450;
-  const userName = "田中 太郎";
 
   const handleLogout = () => {
     if (onLogout) {
@@ -31,6 +31,22 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
     { path: "/report", label: "レポート", icon: FileText },
     { path: "/data-sources", label: "データソース", icon: Database },
   ];
+
+  // ユーザー名の取得（表示用）
+  const displayName = profile?.full_name || profile?.email?.split('@')[0] || 'ユーザー';
+  const userInitial = displayName.charAt(0).toUpperCase();
+
+  // 権限ラベルの取得
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return '管理者';
+      case 'moderator':
+        return 'モデレーター';
+      default:
+        return '一般ユーザー';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -76,7 +92,7 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
               </Button>
               <Avatar>
                 <AvatarFallback className="bg-blue-600 text-white">
-                  {userName.charAt(0)}
+                  {userInitial}
                 </AvatarFallback>
               </Avatar>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -100,12 +116,24 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">名前:</span>
-                        <span className="font-medium">{userName}</span>
+                        <span className="font-medium">
+                          {loading ? "読み込み中..." : displayName}
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">権限:</span>
-                        <Badge variant="outline">一般ユーザー</Badge>
+                        <Badge variant="outline">
+                          {loading ? "..." : getRoleLabel(profile?.role || 'user')}
+                        </Badge>
                       </div>
+                      {profile?.email && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">メール:</span>
+                          <span className="font-medium text-xs truncate max-w-24">
+                            {profile.email}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

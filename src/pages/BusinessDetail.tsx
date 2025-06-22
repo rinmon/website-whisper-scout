@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,6 @@ const BusinessDetail = () => {
 
   useEffect(() => {
     if (id) {
-      // URLパラメータのidは文字列なので、そのまま使用
       const isValidId = typeof id === 'string' && id.trim() !== '';
       if (isValidId) {
         fetchBusiness(id);
@@ -75,10 +75,8 @@ const BusinessDetail = () => {
     try {
       console.log('ウェブサイト分析を開始:', business.website_url);
       
-      // ここで実際の分析APIを呼び出す
-      // 現在はモック分析結果を生成
+      // モック分析結果を生成
       const mockAnalysis = {
-        id: business.id,
         business_id: business.id,
         overall_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
         technical_score: Math.round((Math.random() * 2 + 3) * 10) / 10,
@@ -118,7 +116,7 @@ const BusinessDetail = () => {
       await SupabaseBusinessService.updateBusiness(business.id, updatedBusiness);
       
       setBusiness(updatedBusiness);
-      setWebsiteAnalysis(mockAnalysis);
+      setWebsiteAnalysis({ ...mockAnalysis, id: business.id });
       
       toast({
         title: "分析完了",
@@ -231,7 +229,7 @@ const BusinessDetail = () => {
             </div>
             <div>
               <div className="text-sm font-bold">電話番号</div>
-              <div className="text-muted-foreground">{business.phone_number || "未登録"}</div>
+              <div className="text-muted-foreground">{business.phone_number || business.phone || "未登録"}</div>
             </div>
             <div>
               <div className="text-sm font-bold">ウェブサイト</div>
@@ -249,7 +247,7 @@ const BusinessDetail = () => {
             </div>
             <div>
               <div className="text-sm font-bold">従業員数</div>
-              <div className="text-muted-foreground">{business.number_of_employees || "未登録"}</div>
+              <div className="text-muted-foreground">{business.number_of_employees || business.employee_count || "未登録"}</div>
             </div>
           </CardContent>
         </Card>

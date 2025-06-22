@@ -28,7 +28,7 @@ const Index = () => {
   };
 
   // 手動データ取得の結果を処理
-  const handleDataFetched = (newData: any[]) => {
+  const handleDataFetched = (newData: Business[]) => {
     toast({
       title: "データ取得完了",
       description: `${newData.length}社の企業データを取得しました`,

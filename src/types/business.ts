@@ -11,12 +11,18 @@ export interface Business {
   eeat_score?: number;
   content_score?: number;
   ai_content_score?: number;
+  user_experience_score?: number; // 追加
+  seo_score?: number; // 追加
   phone?: string;
+  phone_number?: string; // 追加（別名）
   address?: string;
   established_year?: number;
+  establishment_date?: string; // 追加
   employee_count?: string;
+  number_of_employees?: string; // 追加（別名）
   capital?: string;
   description?: string;
+  catch_copy?: string; // 追加
   last_analyzed?: string;
   is_new?: boolean;
   data_source?: string;

@@ -3,33 +3,28 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Business } from '@/types/business';
 import { BusinessDataService } from '@/services/businessDataService';
-import { DataStorageService } from '@/services/dataStorageService';
+import { SupabaseBusinessService } from '@/services/supabaseBusinessService';
+import { useAuth } from '@/hooks/useAuth';
 
 export const useBusinessData = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isDataCleared, setIsDataCleared] = useState(false);
+  const { user } = useAuth();
 
-  // バックグラウンド処理の状態監視
+  // 初回ログイン時にローカルデータをSupabaseに移行
   useEffect(() => {
-    const checkBackgroundStatus = () => {
-      const bgStatus = BusinessDataService.getBackgroundFetchStatus();
-      if (bgStatus.isRunning) {
-        // バックグラウンド処理中は定期的にデータを更新
-        const interval = setInterval(() => {
-          const newStatus = BusinessDataService.getBackgroundFetchStatus();
-          if (!newStatus.isRunning) {
-            clearInterval(interval);
-            // バックグラウンド処理完了時にデータを更新
-            refreshData();
-          }
-        }, 5000);
-        
-        return () => clearInterval(interval);
-      }
-    };
-
-    checkBackgroundStatus();
-  }, [refreshTrigger]);
+    if (user) {
+      const migrateLocalData = async () => {
+        const localData = localStorage.getItem('accumulated_business_data');
+        if (localData) {
+          console.log('🔄 ローカルデータをSupabaseに移行中...');
+          await SupabaseBusinessService.migrateFromLocalStorage();
+          setRefreshTrigger(prev => prev + 1);
+        }
+      };
+      
+      migrateLocalData();
+    }
+  }, [user]);
 
   const {
     data: businesses = [],
@@ -39,32 +34,24 @@ export const useBusinessData = () => {
   } = useQuery({
     queryKey: ['businesses', refreshTrigger],
     queryFn: async () => {
-      // データがクリアされた直後は空配列を返す
-      if (isDataCleared) {
-        console.log('🚫 データクリア状態のため空配列を返します');
+      if (!user) {
         return [];
       }
-
-      // 蓄積されたデータを優先的に返す
-      const accumulatedData = DataStorageService.getAccumulatedData();
       
-      console.log(`🔍 蓄積データ確認: ${accumulatedData.length}社`);
+      // Supabaseからデータを取得
+      const supabaseData = await SupabaseBusinessService.getBusinesses();
       
-      if (accumulatedData.length > 0) {
-        console.log(`📋 蓄積データ ${accumulatedData.length}社を返します`);
-        // データの内容をログ出力して確認
-        accumulatedData.forEach((business, index) => {
-          console.log(`${index + 1}. ${business.name} - ${business.website_url || 'URLなし'}`);
-        });
-        return accumulatedData;
+      if (supabaseData.length > 0) {
+        console.log(`📋 Supabaseデータ ${supabaseData.length}社を返します`);
+        return supabaseData;
       }
       
-      // 蓄積データがない場合は空配列を返す（自動取得を停止）
-      console.log('❌ 蓄積データなし、空配列を返します');
+      console.log('❌ Supabaseデータなし、空配列を返します');
       return [];
     },
-    staleTime: 0, // キャッシュを無効化
-    gcTime: 0, // ガベージコレクションも即座に
+    enabled: !!user,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const refreshData = () => {
@@ -76,23 +63,38 @@ export const useBusinessData = () => {
     return await BusinessDataService.fetchChamberOfCommerceData(region);
   };
 
-  // 進捗付きデータ取得用のフック（全国対応版）
+  // 進捗付きデータ取得用のフック（Supabase保存対応版）
   const fetchWithProgress = async (onProgress?: (status: string, current: number, total: number) => void) => {
     const newData = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
-    // データが更新されたので状態をリセット
-    setIsDataCleared(false);
+    
+    // 取得したデータをSupabaseに保存
+    if (user && newData.length > 0) {
+      console.log('💾 取得データをSupabaseに保存中...');
+      await SupabaseBusinessService.saveBusinesses(newData);
+    }
+    
     refreshData();
     return newData;
   };
 
-  // データ統計を取得
-  const getDataStats = () => {
-    return DataStorageService.getDataStats();
-  };
-
-  // 都道府県別統計を取得
-  const getPrefectureStats = () => {
-    return DataStorageService.getPrefectureStats();
+  // データ統計を取得（Supabase版）
+  const getDataStats = async () => {
+    if (!user) {
+      return {
+        totalCount: 0,
+        withWebsite: 0,
+        withoutWebsite: 0,
+        byIndustry: {},
+        byLocation: {},
+        lastUpdated: null
+      };
+    }
+    
+    const stats = await SupabaseBusinessService.getBusinessStats();
+    return {
+      ...stats,
+      lastUpdated: new Date().toISOString()
+    };
   };
 
   // バックグラウンド処理の状態を取得
@@ -106,56 +108,25 @@ export const useBusinessData = () => {
     refreshData();
   };
 
-  // データ削除機能を強化
+  // データ削除機能（Supabase対応版）
   const clearAllData = async () => {
     console.log('🗑️ 全データ削除を実行開始');
     
-    // 1. バックグラウンド処理を停止
+    // バックグラウンド処理を停止
     BusinessDataService.stopBackgroundFetch();
     
-    // 2. クリア状態をセット
-    setIsDataCleared(true);
+    // ローカルストレージからデータを削除
+    localStorage.clear();
     
-    // 3. ストレージからデータを削除（強化版）
-    DataStorageService.clearAllData();
-    
-    // 4. サービス層のデータも削除
-    BusinessDataService.clearAllData();
-    
-    // 5. React Queryのキャッシュを完全にクリア
+    // React Queryのキャッシュを完全にクリア
     const queryClient = (window as any).queryClient;
     if (queryClient) {
       await queryClient.clear();
       console.log('📦 React Queryキャッシュをクリア');
     }
     
-    // 6. データリフレッシュ
     refreshData();
-    
     console.log('✅ 全データ削除完了');
-  };
-
-  // GitHub組織検索データの削除
-  const removeGitHubData = () => {
-    DataStorageService.removeGitHubOrganizationData();
-    refreshData();
-  };
-
-  // 特定データソースの削除
-  const removeByDataSource = (dataSource: string) => {
-    DataStorageService.removeByDataSource(dataSource);
-    refreshData();
-  };
-
-  // サンプルデータ削除機能を追加
-  const removeSampleData = () => {
-    DataStorageService.removeSampleData();
-    refreshData();
-  };
-
-  const removeBusinessesByCondition = (condition: (business: Business) => boolean) => {
-    DataStorageService.removeBusinessesByCondition(condition);
-    refreshData();
   };
 
   return {
@@ -167,14 +138,9 @@ export const useBusinessData = () => {
     fetchWithProgress,
     refetch,
     getDataStats,
-    getPrefectureStats,
     getBackgroundStatus,
     stopBackgroundFetch,
-    clearAllData,
-    removeSampleData,
-    removeBusinessesByCondition,
-    removeGitHubData,
-    removeByDataSource
+    clearAllData
   };
 };
 
@@ -183,7 +149,6 @@ export const useBusinessAnalysis = (businessId: number) => {
   return useQuery({
     queryKey: ['business-analysis', businessId],
     queryFn: async () => {
-      // 実際の分析APIコール
       console.log(`企業ID ${businessId} の詳細分析を実行中...`);
       
       // 暫定的なモックデータ
@@ -213,6 +178,6 @@ export const useBusinessAnalysis = (businessId: number) => {
       };
     },
     enabled: !!businessId,
-    staleTime: 1000 * 60 * 60, // 1時間キャッシュ
+    staleTime: 1000 * 60 * 60,
   });
 };

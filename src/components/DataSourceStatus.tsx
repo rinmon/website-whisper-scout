@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Activity, Settings, ExternalLink } from "lucide-react";
+import { RefreshCw, Database, CheckCircle, AlertCircle, Activity, Settings, ExternalLink, LogOut } from "lucide-react";
 import { BusinessDataService } from "@/services/businessDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
+import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
 
 interface DataSourceStatusProps {
@@ -16,9 +17,22 @@ interface DataSourceStatusProps {
 
 const DataSourceStatus = ({ onRefresh }: DataSourceStatusProps) => {
   const [backgroundStatus, setBackgroundStatus] = useState<any>(null);
+  const [dataStats, setDataStats] = useState<any>({ totalCount: 0 });
   
   const { getDataStats } = useBusinessData();
-  const dataStats = getDataStats();
+  const { user, signOut } = useAuth();
+
+  // データ統計を取得
+  useEffect(() => {
+    const loadStats = async () => {
+      const stats = await getDataStats();
+      setDataStats(stats);
+    };
+    
+    if (user) {
+      loadStats();
+    }
+  }, [user]);
 
   // バックグラウンド処理の状況を定期的に更新
   useEffect(() => {
@@ -33,6 +47,14 @@ const DataSourceStatus = ({ onRefresh }: DataSourceStatusProps) => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('サインアウトエラー:', error);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -41,19 +63,30 @@ const DataSourceStatus = ({ onRefresh }: DataSourceStatusProps) => {
             <CardTitle className="flex items-center">
               <Database className="mr-2 h-5 w-5" />
               データ同期状況
+              {user && (
+                <Badge variant="outline" className="ml-2">
+                  {user.email}
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription>
               蓄積データ: {dataStats.totalCount}社
               {backgroundStatus?.isRunning && " • 自動取得中"}
             </CardDescription>
           </div>
-          <Link to="/data-sources">
-            <Button variant="outline" size="sm">
-              <Settings className="mr-2 h-4 w-4" />
-              詳細管理
-              <ExternalLink className="ml-2 h-3 w-3" />
+          <div className="flex space-x-2">
+            <Link to="/data-sources">
+              <Button variant="outline" size="sm">
+                <Settings className="mr-2 h-4 w-4" />
+                詳細管理
+                <ExternalLink className="ml-2 h-3 w-3" />
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              ログアウト
             </Button>
-          </Link>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -84,7 +117,7 @@ const DataSourceStatus = ({ onRefresh }: DataSourceStatusProps) => {
               <div className="flex items-center">
                 <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
                 <span className="text-sm font-medium text-blue-900">
-                  データ同期完了 - 待機中
+                  データ同期完了 - Supabase連携済み
                 </span>
               </div>
               <p className="text-xs text-blue-800 mt-1">

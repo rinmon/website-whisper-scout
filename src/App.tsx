@@ -4,13 +4,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/hooks/useAuth";
+import AuthGuard from "@/components/AuthGuard";
 import Index from "./pages/Index";
 import BusinessList from "./pages/BusinessList";
 import BusinessDetail from "./pages/BusinessDetail";
 import Report from "./pages/Report";
 import UserSettings from "./pages/UserSettings";
 import DataSources from "./pages/DataSources";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,13 +28,37 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/businesses" element={<BusinessList />} />
-            <Route path="/business/:id" element={<BusinessDetail />} />
-            <Route path="/report" element={<Report />} />
-            <Route path="/settings" element={<UserSettings />} />
-            <Route path="/data-sources" element={<DataSources />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={
+              <AuthGuard>
+                <Index />
+              </AuthGuard>
+            } />
+            <Route path="/businesses" element={
+              <AuthGuard>
+                <BusinessList />
+              </AuthGuard>
+            } />
+            <Route path="/business/:id" element={
+              <AuthGuard>
+                <BusinessDetail />
+              </AuthGuard>
+            } />
+            <Route path="/report" element={
+              <AuthGuard>
+                <Report />
+              </AuthGuard>
+            } />
+            <Route path="/settings" element={
+              <AuthGuard>
+                <UserSettings />
+              </AuthGuard>
+            } />
+            <Route path="/data-sources" element={
+              <AuthGuard>
+                <DataSources />
+              </AuthGuard>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

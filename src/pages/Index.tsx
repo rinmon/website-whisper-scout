@@ -12,6 +12,7 @@ import DataSourceStatus from "@/components/DataSourceStatus";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBusinessData } from "@/hooks/useBusinessData";
+import { Business } from "@/types/business";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const Index = () => {
   };
 
   // 手動データ取得の結果を処理
-  const handleDataFetched = (newData: any[]) => {
+  const handleDataFetched = (newData: Business[]) => {
     console.log('データ取得完了:', newData);
     toast({
       title: "データ取得完了",

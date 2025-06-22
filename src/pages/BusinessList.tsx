@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { Business } from "@/types/business";
 
@@ -18,7 +19,7 @@ const ITEMS_PER_PAGE = 12;
 const BusinessList = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
   const { businesses, isLoading, error } = useBusinessData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filteredBusinesses, setFilteredBusinesses] = useState<Business[]>([]);
@@ -28,8 +29,8 @@ const BusinessList = () => {
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     toast({
       title: "ログアウトしました",
       description: "ご利用ありがとうございました",

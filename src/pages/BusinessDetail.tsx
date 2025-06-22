@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +32,8 @@ const BusinessDetail = () => {
   const { logout } = useAuth();
   const { businesses } = useBusinessData();
   
-  // 蓄積された実際のデータから企業を検索
-  const business = businesses.find(b => b.id === parseInt(id || "0"));
+  // 蓄積された実際のデータから企業を検索（IDは文字列として比較）
+  const business = businesses.find(b => b.id === id);
 
   // 前のページのクエリパラメータを保持
   const previousSearchParams = location.state?.searchParams || '';
@@ -151,8 +152,8 @@ const BusinessDetail = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center">
-                    <div className={`text-3xl font-bold ${getScoreColor(business.overall_score)}`}>
-                      {business.overall_score.toFixed(1)}
+                    <div className={`text-3xl font-bold ${getScoreColor(business.overall_score || 0)}`}>
+                      {(business.overall_score || 0).toFixed(1)}
                     </div>
                     <div className="text-sm text-gray-600">/ 5.0</div>
                   </div>
@@ -186,11 +187,11 @@ const BusinessDetail = () => {
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-medium">技術力スコア</span>
-                          <span className={`text-sm font-bold ${getScoreColor(business.technical_score)}`}>
-                            {business.technical_score.toFixed(1)}
+                          <span className={`text-sm font-bold ${getScoreColor(business.technical_score || 0)}`}>
+                            {(business.technical_score || 0).toFixed(1)}
                           </span>
                         </div>
-                        <Progress value={business.technical_score * 20} className="h-3" />
+                        <Progress value={(business.technical_score || 0) * 20} className="h-3" />
                         <p className="text-xs text-gray-600 mt-1">
                           サイト速度、モバイル対応、セキュリティなどの技術的品質
                         </p>
@@ -199,11 +200,11 @@ const BusinessDetail = () => {
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-medium">信頼性 (E-E-A-T)</span>
-                          <span className={`text-sm font-bold ${getScoreColor(business.eeat_score)}`}>
-                            {business.eeat_score.toFixed(1)}
+                          <span className={`text-sm font-bold ${getScoreColor(business.eeat_score || 0)}`}>
+                            {(business.eeat_score || 0).toFixed(1)}
                           </span>
                         </div>
-                        <Progress value={business.eeat_score * 20} className="h-3" />
+                        <Progress value={(business.eeat_score || 0) * 20} className="h-3" />
                         <p className="text-xs text-gray-600 mt-1">
                           専門性、権威性、信頼性の評価
                         </p>
@@ -212,11 +213,11 @@ const BusinessDetail = () => {
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-medium">コンテンツ品質</span>
-                          <span className={`text-sm font-bold ${getScoreColor(business.content_score)}`}>
-                            {business.content_score.toFixed(1)}
+                          <span className={`text-sm font-bold ${getScoreColor(business.content_score || 0)}`}>
+                            {(business.content_score || 0).toFixed(1)}
                           </span>
                         </div>
-                        <Progress value={business.content_score * 20} className="h-3" />
+                        <Progress value={(business.content_score || 0) * 20} className="h-3" />
                         <p className="text-xs text-gray-600 mt-1">
                           情報の充実度、読みやすさ、有用性
                         </p>
@@ -253,15 +254,15 @@ const BusinessDetail = () => {
                 </TabsContent>
 
                 <TabsContent value="improvements">
-                  <ImprovementRecommendations businessScore={business.overall_score} />
+                  <ImprovementRecommendations businessScore={business.overall_score || 0} />
                 </TabsContent>
 
                 <TabsContent value="competition">
                   <CompetitorComparison 
                     currentBusiness={{
                       name: business.name,
-                      overall_score: business.overall_score,
-                      industry: business.industry
+                      overall_score: business.overall_score || 0,
+                      industry: business.industry || '不明'
                     }}
                   />
                 </TabsContent>

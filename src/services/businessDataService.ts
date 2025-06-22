@@ -35,7 +35,7 @@ export class BusinessDataService {
     
     // ダミーデータを生成して返す
     const dummyData = Array.from({ length: 20 }, (_, i) => ({
-      id: Date.now() + i,
+      id: `chamber-${Date.now()}-${i}`, // 文字列IDに変更
       name: `サンプル企業 ${i + 1} (${region})`,
       website_url: 'https://example.com',
       has_website: true,
@@ -71,7 +71,7 @@ export class BusinessDataService {
       
       // 必要な情報をBusinessオブジェクトに変換
       const business: Business = {
-        id: Date.now(),
+        id: `github-${data.id}`, // GitHub IDを文字列に変換
         name: data.name || data.login,
         website_url: data.blog || data.url,
         has_website: !!data.blog,
@@ -116,8 +116,8 @@ export class BusinessDataService {
       }
       
       // 検索結果をBusinessオブジェクトに変換
-      const businesses: Business[] = data.items.map((item: any) => ({
-        id: Date.now(),
+      const businesses: Business[] = data.items.map((item: any, index: number) => ({
+        id: `github-search-${item.id}`, // GitHub IDを文字列に変換
         name: item.login,
         website_url: item.html_url,
         has_website: true,
@@ -161,7 +161,7 @@ export class BusinessDataService {
       
       // 企業データをBusinessオブジェクトに変換
       const corporateBusinesses = corporateData.map((corp, index) => ({
-        id: Date.now() + index,
+        id: `corporate-${Date.now()}-${index}`, // 一意な文字列IDを生成
         name: corp.name,
         website_url: corp.website || '',
         has_website: !!corp.website,

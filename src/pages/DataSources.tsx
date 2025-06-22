@@ -20,11 +20,28 @@ const DataSources = () => {
   const [backgroundStatus, setBackgroundStatus] = useState<any>(null);
   const [selectedPrefectures, setSelectedPrefectures] = useState<string[]>([]);
   const [selectedDataSourceGroup, setSelectedDataSourceGroup] = useState<string>('all');
+  const [dataStats, setDataStats] = useState<any>(null);
+  const [prefectureStats, setPrefectureStats] = useState<any>({});
   
   const { clearAllData, removeSampleData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
   const corporateDataSources = CorporateDataService.getAvailableDataSources();
-  const dataStats = getDataStats();
-  const prefectureStats = getPrefectureStats();
+
+  // データ統計を非同期で取得
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const stats = await getDataStats();
+        setDataStats(stats);
+        
+        const prefStats = await getPrefectureStats();
+        setPrefectureStats(prefStats);
+      } catch (error) {
+        console.error('統計データ取得エラー:', error);
+      }
+    };
+    
+    loadStats();
+  }, [getDataStats, getPrefectureStats]);
 
   // バックグラウンド処理の状況を定期的に更新
   useEffect(() => {
@@ -242,7 +259,7 @@ const DataSources = () => {
           selectedPrefectures={selectedPrefectures}
           onPrefectureSelect={handlePrefectureSelect}
           businessData={Object.fromEntries(
-            Object.entries(prefectureStats).map(([pref, stats]) => [pref, stats.total])
+            Object.entries(prefectureStats).map(([pref, count]) => [pref, count])
           )}
         />
 
@@ -254,7 +271,7 @@ const DataSources = () => {
               取得状況
             </CardTitle>
             <CardDescription>
-              蓄積データ: {dataStats.totalCount}社
+              蓄積データ: {dataStats?.totalCount || 0}社
               {backgroundStatus?.isRunning && " • バックグラウンド処理中"}
             </CardDescription>
           </CardHeader>

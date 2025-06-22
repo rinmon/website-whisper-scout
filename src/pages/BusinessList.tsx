@@ -36,7 +36,7 @@ const BusinessList = () => {
     });
   };
 
-  const handleBusinessDetail = (businessId: number) => {
+  const handleBusinessDetail = (businessId: string) => {
     const currentSearchParams = location.search;
     navigate(`/business/${businessId}`, {
       state: { searchParams: currentSearchParams }
@@ -79,11 +79,11 @@ const BusinessList = () => {
 
     if (scoreFilter !== "all") {
       if (scoreFilter === "low") {
-        filtered = filtered.filter(business => business.overall_score < 2.5);
+        filtered = filtered.filter(business => (business.overall_score || 0) < 2.5);
       } else if (scoreFilter === "medium") {
-        filtered = filtered.filter(business => business.overall_score >= 2.5 && business.overall_score < 3.5);
+        filtered = filtered.filter(business => (business.overall_score || 0) >= 2.5 && (business.overall_score || 0) < 3.5);
       } else if (scoreFilter === "high") {
-        filtered = filtered.filter(business => business.overall_score >= 3.5);
+        filtered = filtered.filter(business => (business.overall_score || 0) >= 3.5);
       } else if (scoreFilter === "no-website") {
         filtered = filtered.filter(business => !business.has_website);
       }
@@ -220,8 +220,8 @@ const BusinessList = () => {
                       </div>
                     )}
                   </div>
-                  <Badge variant={getScoreBadgeVariant(business.overall_score)}>
-                    {business.has_website ? business.overall_score.toFixed(1) : "サイトなし"}
+                  <Badge variant={getScoreBadgeVariant(business.overall_score || 0)}>
+                    {business.has_website ? (business.overall_score || 0).toFixed(1) : "サイトなし"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -233,21 +233,21 @@ const BusinessList = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>技術力</span>
-                          <span>{business.technical_score.toFixed(1)}</span>
+                          <span>{(business.technical_score || 0).toFixed(1)}</span>
                         </div>
-                        <Progress value={business.technical_score * 20} className="h-2" />
+                        <Progress value={(business.technical_score || 0) * 20} className="h-2" />
                         
                         <div className="flex justify-between text-sm">
                           <span>信頼性 (E-E-A-T)</span>
-                          <span>{business.eeat_score.toFixed(1)}</span>
+                          <span>{(business.eeat_score || 0).toFixed(1)}</span>
                         </div>
-                        <Progress value={business.eeat_score * 20} className="h-2" />
+                        <Progress value={(business.eeat_score || 0) * 20} className="h-2" />
                         
                         <div className="flex justify-between text-sm">
                           <span>コンテンツ</span>
-                          <span>{business.content_score.toFixed(1)}</span>
+                          <span>{(business.content_score || 0).toFixed(1)}</span>
                         </div>
-                        <Progress value={business.content_score * 20} className="h-2" />
+                        <Progress value={(business.content_score || 0) * 20} className="h-2" />
                       </div>
 
                       {/* AIコンテンツ検出 */}

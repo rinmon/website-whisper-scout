@@ -66,8 +66,8 @@ const DataSources = () => {
         case 'fuma':
           corporateData = await CorporateDataService.fetchFromFUMA(progressCallback);
           break;
-        case 'listed':
-          corporateData = await CorporateDataService.fetchFromListed(progressCallback);
+        case 'scraping':
+          corporateData = await CorporateDataService.fetchFromScraping(progressCallback);
           break;
         case 'priority':
            corporateData = await CorporateDataService.fetchPriority(progressCallback);
@@ -163,31 +163,31 @@ const DataSources = () => {
   };
 
   return (
-    <DashboardLayout title="データソース" description="信頼性の高い企業情報データソースの設定と取得状況">
+    <DashboardLayout title="データソース" description="実際のWebサイトからのスクレイピングによる企業情報データ取得">
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <Database className="mr-2 h-5 w-5" />
-              データ取得・管理状況
+              リアルデータ取得・管理状況
             </CardTitle>
             <CardDescription>
               あなたの企業リスト: {stats?.totalCount || 0}社
               <br />
               <span className="text-sm text-muted-foreground">
-                企業マスターデータから選択して、自分の企業リストに追加できます
+                実際のWebサイトからスクレイピングした企業データを取得・管理します
               </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
-                <Plus className="mr-2 h-4 w-4" />
-                新しいアーキテクチャについて
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-green-800 mb-2 flex items-center">
+                <Activity className="mr-2 h-4 w-4" />
+                実データスクレイピング機能
               </h4>
-              <p className="text-sm text-blue-700">
-                企業データは共有マスターデータとして管理され、各ユーザーが必要な企業を選択して自分のリストに追加できます。
-                データソース機能で取得したデータは全ユーザーが利用可能な企業マスターに保存されます。
+              <p className="text-sm text-green-700">
+                食べログ、えきてん、まいぷれから実際の企業データをスクレイピングで取得します。
+                重複チェックやレート制限機能により、サイトをブロックされることなく効率的にデータを収集します。
               </p>
             </div>
 
@@ -258,34 +258,61 @@ const DataSources = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <MapPin className="mr-2 h-5 w-5" />
-              企業データソース一覧（{corporateDataSources.length}件）
+              実データ取得ソース一覧
             </CardTitle>
             <CardDescription>
-              信頼性の高い企業情報データソース
+              実際のWebサイトからスクレイピングでデータを取得
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {corporateDataSources.map((source, index) => (
-                <div 
-                  key={index} 
-                  className={`p-4 border rounded-lg ${getPriorityColor(source.priority)}`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(source.type, source.enabled)}
-                      <div className="text-sm font-medium">{source.name}</div>
-                    </div>
-                    {getStatusBadge(source.type, source.enabled)}
+              <div className="p-4 border rounded-lg border-green-300">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="h-5 w-5 text-green-500" />
+                    <div className="text-sm font-medium">食べログ</div>
                   </div>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>優先度: {source.priority}</div>
-                    <div>最大取得件数: {source.maxRecords}</div>
-                    <div>URL: <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{source.url}</a></div>
-                    <div className="truncate">{source.description}</div>
-                  </div>
+                  <Badge className="bg-green-100 text-green-800">スクレイピング</Badge>
                 </div>
-              ))}
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>優先度: 1</div>
+                  <div>レート制限: 3秒間隔</div>
+                  <div>URL: <a href="https://tabelog.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">tabelog.com</a></div>
+                  <div>全国の飲食店情報を取得</div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg border-green-300">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="h-5 w-5 text-green-500" />
+                    <div className="text-sm font-medium">えきてん</div>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800">スクレイピング</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>優先度: 2</div>
+                  <div>レート制限: 3秒間隔</div>
+                  <div>URL: <a href="https://www.ekiten.jp" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">ekiten.jp</a></div>
+                  <div>地域密着型の店舗情報を取得</div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg border-green-300">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="h-5 w-5 text-green-500" />
+                    <div className="text-sm font-medium">まいぷれ</div>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800">スクレイピング</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div>優先度: 3</div>
+                  <div>レート制限: 3秒間隔</div>
+                  <div>URL: <a href="https://www.maipre.jp" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">maipre.jp</a></div>
+                  <div>地域の店舗・企業情報を取得</div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

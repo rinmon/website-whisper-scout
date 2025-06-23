@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,42 +105,42 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
     {
       value: 'all',
       label: '全データソース',
-      description: '全ての企業情報データソースから取得',
+      description: '全ての実データソースから取得（API+スクレイピング）',
       icon: <Database className="h-5 w-5" />,
       color: 'bg-blue-500',
-      estimatedCount: '5,000+'
+      estimatedCount: '実データ'
     },
     {
       value: 'nta',
       label: '国税庁法人番号',
-      description: '全法人の基本情報（法人番号・住所）',
+      description: '全法人の基本情報（API経由）',
       icon: <FileText className="h-5 w-5" />,
       color: 'bg-green-500',
-      estimatedCount: '2,000+'
+      estimatedCount: '実データ'
     },
     {
       value: 'fuma',
       label: 'FUMA（フーマ）',
-      description: '160万社の企業情報、検索制限なし',
+      description: '160万社の企業情報（API経由）',
       icon: <Building2 className="h-5 w-5" />,
       color: 'bg-purple-500',
-      estimatedCount: '1,500+'
+      estimatedCount: '実データ'
     },
     {
-      value: 'listed',
-      label: '上場企業特化',
-      description: 'Ullet・Yahoo!ファイナンスから財務情報',
+      value: 'scraping',
+      label: 'スクレイピング',
+      description: '食べログ・えきてん・まいぷれから直接取得',
       icon: <BarChart3 className="h-5 w-5" />,
       color: 'bg-orange-500',
-      estimatedCount: '800+'
+      estimatedCount: '実データ'
     },
     {
       value: 'priority',
       label: '優先度高',
-      description: '信頼性の高いデータソース（1-3位）',
+      description: '国税庁API + スクレイピングデータ',
       icon: <Star className="h-5 w-5" />,
       color: 'bg-yellow-500',
-      estimatedCount: '3,000+'
+      estimatedCount: '実データ'
     }
   ];
 
@@ -150,9 +149,9 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
   return (
     <Card>
       <CardHeader>
-        <CardTitle>企業データ取得設定</CardTitle>
+        <CardTitle>実データ取得設定</CardTitle>
         <CardDescription>
-          取得する企業情報データソースのカテゴリを選択してください
+          実際のWebサイトから取得する企業情報データソースを選択
           {dataStats && (
             <span className="ml-2 text-sm font-medium">
               現在のデータ: {dataStats.totalCount}社
@@ -241,59 +240,51 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
         {/* 利用可能なデータソース一覧（実データ取得状況付き） */}
         <div className="mt-6 p-4 bg-gray-50 rounded-lg">
           <h4 className="text-sm font-medium mb-3 flex items-center">
-            利用可能なデータソース
+            実データ取得ソース
             <Badge variant="outline" className="ml-2 text-xs">
-              実データ状況
+              スクレイピング対応
             </Badge>
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
             <div className="p-2 bg-white rounded border flex items-center justify-between">
               <div>
+                <strong>食べログ</strong><br />
+                全国の飲食店データ
+              </div>
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                スクレイピング対応
+              </Badge>
+            </div>
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>えきてん</strong><br />
+                地域密着型店舗データ
+              </div>
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                スクレイピング対応
+              </Badge>
+            </div>
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
+                <strong>まいぷれ</strong><br />
+                地域企業・店舗データ
+              </div>
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                スクレイピング対応
+              </Badge>
+            </div>
+            <div className="p-2 bg-white rounded border flex items-center justify-between">
+              <div>
                 <strong>国税庁法人番号公表サイト</strong><br />
                 全法人の基本情報
               </div>
-              {getStatusBadge(getDataSourceStatus('nta'))}
-            </div>
-            <div className="p-2 bg-white rounded border flex items-center justify-between">
-              <div>
-                <strong>FUMA（フーマ）</strong><br />
-                160万社の企業情報
-              </div>
-              {getStatusBadge(getDataSourceStatus('fuma'))}
-            </div>
-            <div className="p-2 bg-white rounded border flex items-center justify-between">
-              <div>
-                <strong>BIZMAPS</strong><br />
-                高鮮度な企業データ
-              </div>
-              <Badge variant="outline">
-                <Clock className="w-3 h-3 mr-1" />
-                準備中
+              <Badge className="bg-blue-100 text-blue-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                API対応
               </Badge>
-            </div>
-            <div className="p-2 bg-white rounded border flex items-center justify-between">
-              <div>
-                <strong>Musubu（ムスブ）</strong><br />
-                無料30件まで取得可能
-              </div>
-              <Badge variant="outline">
-                <Clock className="w-3 h-3 mr-1" />
-                準備中
-              </Badge>
-            </div>
-            <div className="p-2 bg-white rounded border flex items-center justify-between">
-              <div>
-                <strong>Ullet（ユーレット）</strong><br />
-                上場企業の財務データ
-              </div>
-              {getStatusBadge(getDataSourceStatus('listed'))}
-            </div>
-            <div className="p-2 bg-white rounded border flex items-center justify-between">
-              <div>
-                <strong>Yahoo!ファイナンス</strong><br />
-                上場企業の株価・財務
-              </div>
-              {getStatusBadge(getDataSourceStatus('listed'))}
             </div>
           </div>
         </div>

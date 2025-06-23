@@ -1,6 +1,6 @@
-
 export interface Business {
   id: string; // UUIDはstringとして扱う
+  user_id: string; // どのユーザーのデータかを示すFK
   name: string;
   industry?: string;
   location?: string;
@@ -11,18 +11,18 @@ export interface Business {
   eeat_score?: number;
   content_score?: number;
   ai_content_score?: number;
-  user_experience_score?: number; // 追加
-  seo_score?: number; // 追加
+  user_experience_score?: number;
+  seo_score?: number;
   phone?: string;
-  phone_number?: string; // 追加（別名）
+  phone_number?: string;
   address?: string;
   established_year?: number;
-  establishment_date?: string; // 追加
+  establishment_date?: string;
   employee_count?: string;
-  number_of_employees?: string; // 追加（別名）
+  number_of_employees?: string;
   capital?: string;
   description?: string;
-  catch_copy?: string; // 追加
+  catch_copy?: string;
   last_analyzed?: string;
   is_new?: boolean;
   data_source?: string;
@@ -32,8 +32,10 @@ export interface Business {
 
 export interface BusinessAnalysis {
   id?: string;
-  business_id: string; // UUIDはstringとして扱う
-  analysis_date: string;
+  business_id: string; // BusinessテーブルへのFK
+  analyzed_at: string;
+  overall_score: number;
+  recommendations?: string[];
   technical_details?: {
     page_speed?: number;
     mobile_friendly?: boolean;
@@ -42,16 +44,46 @@ export interface BusinessAnalysis {
     structured_data?: boolean;
   };
   content_analysis?: {
-    text_quality?: number;
     readability_score?: number;
+    word_count?: number;
     keyword_density?: number;
-    content_length?: number;
+    ai_generated_content_ratio?: number;
   };
   eeat_factors?: {
-    contact_info?: boolean;
-    about_page?: boolean;
-    privacy_policy?: boolean;
-    terms_of_service?: boolean;
-    social_media_links?: boolean;
+    has_author_info?: boolean;
+    has_contact_info?: boolean;
+    has_about_us_page?: boolean;
+    has_privacy_policy?: boolean;
+    has_terms_of_service?: boolean;
   };
+}
+
+// Supabaseへの保存・更新時に使用するペイロードの型定義
+// DBが自動生成するカラムや、サーバー側で付与するuser_idは除外
+export interface BusinessPayload {
+  name: string;
+  industry?: string;
+  location?: string;
+  website_url?: string;
+  has_website?: boolean;
+  overall_score?: number;
+  technical_score?: number;
+  eeat_score?: number;
+  content_score?: number;
+  ai_content_score?: number;
+  user_experience_score?: number;
+  seo_score?: number;
+  phone?: string;
+  phone_number?: string;
+  address?: string;
+  established_year?: number;
+  establishment_date?: string;
+  employee_count?: string;
+  number_of_employees?: string;
+  capital?: string;
+  description?: string;
+  catch_copy?: string;
+  last_analyzed?: string;
+  is_new?: boolean;
+  data_source?: string;
 }

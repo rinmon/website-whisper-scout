@@ -1,160 +1,133 @@
-
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Business } from '@/types/business';
-import { BusinessDataService } from '@/services/businessDataService';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Business, BusinessPayload } from '@/types/business';
 import { SupabaseBusinessService } from '@/services/supabaseBusinessService';
 import { useAuth } from '@/hooks/useAuth';
+import { useEffect } from 'react';
 
+// デフォルトの統計データ
+const defaultStats = {
+  totalCount: 0,
+  withWebsite: 0,
+  withoutWebsite: 0,
+  byIndustry: {},
+  byLocation: {},
+};
+
+/**
+ * ログインユーザーに紐づく企業データと統計情報を管理するカスタムフック
+ */
 export const useBusinessData = () => {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  // 初回ログイン時にローカルデータをSupabaseに移行
-  useEffect(() => {
-    if (user) {
-      const migrateLocalData = async () => {
-        const localData = localStorage.getItem('accumulated_business_data');
-        if (localData) {
-          console.log('🔄 ローカルデータをSupabaseに移行中...');
-          await SupabaseBusinessService.migrateFromLocalStorage();
-          setRefreshTrigger(prev => prev + 1);
-        }
-      };
-      
-      migrateLocalData();
-    }
-  }, [user]);
+  const queryKeyBusinesses = ['businesses', user?.id];
+  const queryKeyStats = ['businessStats', user?.id];
 
-  const {
-    data: businesses = [],
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['businesses', refreshTrigger],
-    queryFn: async (): Promise<Business[]> => {
+  // Supabaseからビジネスデータを取得するためのクエリ
+  const { data: businesses = [], isLoading: isBusinessesLoading } = useQuery<Business[], Error>({ 
+    queryKey: queryKeyBusinesses,
+    queryFn: async () => {
       if (!user) {
+        console.log('❌ [useBusinessData] No authenticated user found');
         return [];
       }
-      
-      // Supabaseからデータを取得
-      const supabaseData = await SupabaseBusinessService.getBusinesses();
-      
-      if (supabaseData.length > 0) {
-        console.log(`📋 Supabaseデータ ${supabaseData.length}社を返します`);
-        return supabaseData;
-      }
-      
-      console.log('❌ Supabaseデータなし、空配列を返します');
-      return [];
+      console.log('✅ [useBusinessData] Fetching businesses for user.id:', user.id);
+      const result = await SupabaseBusinessService.getBusinesses(user.id);
+      console.log(`📊 [useBusinessData] Fetched ${result.length} businesses:`, result);
+      console.log('🔍 [useBusinessData] Businesses data:', businesses);
+      return result;
     },
     enabled: !!user,
-    staleTime: 0,
-    gcTime: 0,
   });
 
-  const refreshData = () => {
-    console.log('🔄 データリフレッシュを実行');
-    setRefreshTrigger(prev => prev + 1);
+  // Supabaseから統計データを取得するためのクエリ
+  const { data: stats = defaultStats, isLoading: isStatsLoading } = useQuery({
+    queryKey: queryKeyStats,
+    queryFn: async () => {
+      if (!user) {
+        console.log('❌ [useBusinessData] No authenticated user for stats');
+        return defaultStats;
+      }
+      console.log('✅ [useBusinessData] Fetching stats for user.id:', user.id);
+      const result = await SupabaseBusinessService.getBusinessStats(user.id);
+      console.log('📈 [useBusinessData] Fetched stats:', result);
+      console.log('🔍 [useBusinessData] Stats data:', stats);
+      return result;
+    },
+    enabled: !!user,
+  });
+
+  // データを無効化して再取得をトリガーする共通関数
+  const invalidateQueries = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeyBusinesses });
+    queryClient.invalidateQueries({ queryKey: queryKeyStats });
+    console.log('[useBusinessData] Business and stats queries invalidated.');
   };
 
-  const fetchByRegion = async (region: string) => {
-    return await BusinessDataService.fetchChamberOfCommerceData(region);
-  };
+  // データ保存用のMutation
+  const saveBusinessesMutation = useMutation({
+    mutationFn: (newBusinesses: BusinessPayload[]) => {
+      if (!user) throw new Error('User is not authenticated.');
+      return SupabaseBusinessService.saveBusinesses(newBusinesses, user.id);
+    },
+    onSuccess: () => {
+      console.log('[useBusinessData] Save successful, invalidating queries.');
+      invalidateQueries();
+    },
+    onError: (error) => {
+      console.error('[useBusinessData] Failed to save businesses:', error);
+    },
+  });
 
-  // 進捗付きデータ取得用のフック（Supabase保存対応版）
-  const fetchWithProgress = async (onProgress?: (status: string, current: number, total: number) => void) => {
-    const newData = await BusinessDataService.fetchFromOpenSourcesWithProgress(onProgress);
-    
-    // 取得したデータをSupabaseに保存
-    if (user && newData.length > 0) {
-      console.log('💾 取得データをSupabaseに保存中...');
-      await SupabaseBusinessService.saveBusinesses(newData);
-    }
-    
-    refreshData();
-    return newData;
-  };
+  // 全データ削除用のMutation
+  const deleteAllMutation = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error('User is not authenticated to delete data.');
+      return SupabaseBusinessService.deleteAllBusinessData(user.id);
+    },
+    onSuccess: (result) => {
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      console.log('[useBusinessData] Delete successful, invalidating queries.');
+      invalidateQueries();
+    },
+    onError: (error) => {
+      console.error('[useBusinessData] Failed to delete all data:', error);
+    },
+  });
 
-  // データ統計を取得（Supabase版）
-  const getDataStats = async () => {
-    if (!user) {
-      return {
-        totalCount: 0,
-        withWebsite: 0,
-        withoutWebsite: 0,
-        byIndustry: {},
-        byLocation: {},
-        lastUpdated: null
-      };
-    }
-    
-    const stats = await SupabaseBusinessService.getBusinessStats();
-    return {
-      ...stats,
-      lastUpdated: new Date().toISOString()
-    };
-  };
+  // コンポーネントがマウントされたときに認証状態とデータをログ出力
+  useEffect(() => {
+    console.log('🔍 [useBusinessData] Current auth state:', { 
+      userId: user?.id, 
+      authenticated: !!user, 
+      businessCount: businesses.length,
+      stats: stats
+    });
+  }, [user, businesses, stats]);
 
-  // バックグラウンド処理の状態を取得
-  const getBackgroundStatus = () => {
-    return BusinessDataService.getBackgroundFetchStatus();
-  };
-
-  // バックグラウンド処理を停止
-  const stopBackgroundFetch = () => {
-    BusinessDataService.stopBackgroundFetch();
-    refreshData();
-  };
-
-  // データ削除機能（Supabase対応版）
-  const clearAllData = async () => {
-    console.log('🗑️ 全データ削除を実行開始');
-    
-    // バックグラウンド処理を停止
-    BusinessDataService.stopBackgroundFetch();
-    
-    // ローカルストレージからデータを削除
-    localStorage.clear();
-    
-    // React Queryのキャッシュを完全にクリア
-    const queryClient = (window as any).queryClient;
-    if (queryClient) {
-      await queryClient.clear();
-      console.log('📦 React Queryキャッシュをクリア');
-    }
-    
-    refreshData();
-    console.log('✅ 全データ削除完了');
-  };
-
-  // 不足していたメソッドを追加
-  const removeSampleData = () => {
-    // サンプルデータの削除（現在は何もしない）
-    console.log('サンプルデータ削除機能は未実装です');
-  };
-
-  const getPrefectureStats = async () => {
-    // 都道府県別統計の取得
-    const stats = await getDataStats();
-    return stats.byLocation;
-  };
+  // コンポーネントがマウントされたときに認証状態とデータをログ出力
+  useEffect(() => {
+    console.log('🔍 [useBusinessData] Current auth state:', { 
+      userId: user?.id, 
+      authenticated: !!user, 
+      businessCount: businesses.length,
+      stats: stats
+    });
+  }, [user, businesses, stats]);
 
   return {
     businesses,
-    isLoading,
-    error,
-    refreshData,
-    fetchByRegion,
-    fetchWithProgress,
-    refetch,
-    getDataStats,
-    getBackgroundStatus,
-    stopBackgroundFetch,
-    clearAllData,
-    removeSampleData,
-    getPrefectureStats
+    stats,
+    isLoading: isBusinessesLoading || isStatsLoading,
+    isSaving: saveBusinessesMutation.isPending,
+    isDeleting: deleteAllMutation.isPending,
+    // Mutations
+    saveBusinesses: saveBusinessesMutation.mutateAsync,
+    clearAllData: deleteAllMutation.mutateAsync,
+    // Manual refetch
+    refreshData: invalidateQueries,
   };
 };
 
@@ -192,6 +165,6 @@ export const useBusinessAnalysis = (businessId: string) => {
       };
     },
     enabled: !!businessId,
-    staleTime: 1000 * 60 * 60,
+    staleTime: 1000 * 60 * 60, // 1時間キャッシュ
   });
 };

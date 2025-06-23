@@ -1,269 +1,170 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Database, CheckCircle, AlertCircle, Clock, Play, Trash2, Pause, Activity, MapPin } from "lucide-react";
-import { BusinessDataService } from "@/services/businessDataService";
-import { CorporateDataService } from "@/services/corporateDataService";
+import { Database, CheckCircle, AlertCircle, Trash2, Loader2, RefreshCw, MapPin, Activity } from "lucide-react";
+import { CorporateDataService, ProgressCallback } from "@/services/corporateDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import DashboardLayout from "@/components/DashboardLayout";
-import JapanMap from "@/components/JapanMap";
 import DataSourceSelector from "@/components/DataSourceSelector";
-import type { ProgressCallback } from "@/services/businessDataService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { BusinessPayload } from "@/types/business";
+import { Badge } from "@/components/ui/badge";
 
 const DataSources = () => {
-  const [isRunning, setIsRunning] = useState(false);
+  // Local UI state
   const [progress, setProgress] = useState(0);
   const [currentStatus, setCurrentStatus] = useState('');
-  const [fetchResults, setFetchResults] = useState<{ total: number; time: string } | null>(null);
-  const [backgroundStatus, setBackgroundStatus] = useState<any>(null);
-  const [selectedPrefectures, setSelectedPrefectures] = useState<string[]>([]);
+  const [fetchResults, setFetchResults] = useState<{ total: number; time: string; error?: boolean } | null>(null);
   const [selectedDataSourceGroup, setSelectedDataSourceGroup] = useState<string>('all');
-  const [dataStats, setDataStats] = useState<any>(null);
-  const [prefectureStats, setPrefectureStats] = useState<Record<string, number>>({});
-  
-  const { clearAllData, removeSampleData, getDataStats, refreshData, getPrefectureStats } = useBusinessData();
+
+  // Hook for data operations
+  const {
+    stats,
+    saveBusinesses,
+    clearAllData,
+    isSaving,
+    isDeleting,
+  } = useBusinessData();
+
+  const isOperationRunning = isSaving || isDeleting;
+
   const corporateDataSources = CorporateDataService.getAvailableDataSources();
 
-  // データ統計を非同期で取得
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const stats = await getDataStats();
-        setDataStats(stats);
-        
-        const prefStats = await getPrefectureStats();
-        // Ensure prefStats is properly typed as Record<string, number>
-        setPrefectureStats(prefStats as Record<string, number>);
-      } catch (error) {
-        console.error('統計データ取得エラー:', error);
-      }
-    };
-    
-    loadStats();
-  }, [getDataStats, getPrefectureStats]);
-
-  // バックグラウンド処理の状況を定期的に更新
-  useEffect(() => {
-    const updateBackgroundStatus = () => {
-      const bgStatus = BusinessDataService.getBackgroundFetchStatus();
-      setBackgroundStatus(bgStatus);
-    };
-
-    updateBackgroundStatus();
-    const interval = setInterval(updateBackgroundStatus, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // 都道府県選択ハンドラー
-  const handlePrefectureSelect = (prefecture: string) => {
-    setSelectedPrefectures(prev => 
-      prev.includes(prefecture) 
-        ? prev.filter(p => p !== prefecture)
-        : [...prev, prefecture]
-    );
-  };
-
+  // Handler for fetching data from corporate sources
   const handleCorporateDataFetch = async () => {
-    if (isRunning) return;
-    
-    setIsRunning(true);
+    if (isOperationRunning) return;
+
     setProgress(0);
     setCurrentStatus(`${getSelectedGroupLabel()}の企業情報取得を開始...`);
     setFetchResults(null);
-    
     const startTime = Date.now();
 
-    const progressCallback = (status: string, current: number, total: number) => {
+    const progressCallback: ProgressCallback = (status, current, total) => {
       setCurrentStatus(status);
       setProgress(total > 0 ? (current / total) * 100 : 0);
     };
 
     try {
-      let corporateData;
+      let corporateData: BusinessPayload[] = [];
       
-      // 選択されたグループに応じて取得方法を変更
+      // Fetch data based on selected source
       switch (selectedDataSourceGroup) {
         case 'nta':
-          corporateData = await CorporateDataService.fetchFromNTA();
+          corporateData = await CorporateDataService.fetchFromNTA(progressCallback);
           break;
         case 'fuma':
-          corporateData = await CorporateDataService.fetchFromFUMA();
+          corporateData = await CorporateDataService.fetchFromFUMA(progressCallback);
           break;
         case 'listed':
-          // 上場企業特化データ取得（後で実装）
-          corporateData = await CorporateDataService.fetchFromFUMA('上場企業');
+          corporateData = await CorporateDataService.fetchFromListed(progressCallback);
           break;
         case 'priority':
-          corporateData = await CorporateDataService.fetchFromAllSources(progressCallback);
+           corporateData = await CorporateDataService.fetchPriority(progressCallback);
           break;
         default:
-          corporateData = await CorporateDataService.fetchFromAllSources(progressCallback);
+          corporateData = await CorporateDataService.fetchAll(progressCallback);
+          break;
       }
-      
-      // 企業情報をBusinessオブジェクトに変換
-      const businesses = corporateData.map((corp, index) => ({
-        id: `${Date.now()}-${index}`, // 文字列IDを生成
-        name: corp.name,
-        website_url: corp.website || '',
-        has_website: !!corp.website,
-        location: corp.prefecture || '不明',
-        industry: corp.industry || '不明',
-        phone: corp.phone || '',
-        address: corp.address || '',
-        data_source: corp.source,
-        overall_score: corp.website ? Math.random() * 5 : 0,
-        technical_score: Math.random() * 5,
-        eeat_score: Math.random() * 5,
-        content_score: Math.random() * 5,
-        ai_content_score: Math.random() * 5,
-        is_new: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }));
 
-      // データストレージに保存
-      const { DataStorageService } = await import('@/services/dataStorageService');
-      DataStorageService.addBusinessData(businesses);
-      
-      const endTime = Date.now();
-      const duration = Math.round((endTime - startTime) / 1000);
-      
-      setFetchResults({
-        total: businesses.length,
-        time: `${duration}秒`
-      });
-      
-      setCurrentStatus(`${getSelectedGroupLabel()}取得完了！`);
-      refreshData();
-      
+      // Save fetched data to Supabase via the hook
+      if (corporateData.length > 0) {
+        setCurrentStatus(`取得した${corporateData.length}件のデータを保存中...`);
+        await saveBusinesses(corporateData);
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        setFetchResults({ total: corporateData.length, time: duration });
+        setCurrentStatus(`✅ 取得完了: ${corporateData.length}社 (処理時間: ${duration}秒)`);
+      } else {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        setFetchResults({ total: 0, time: duration });
+        setCurrentStatus('取得できる企業データはありませんでした。');
+      }
     } catch (error) {
-      console.error('企業データ取得エラー:', error);
-      setCurrentStatus('企業データ取得に失敗しました');
+      console.error('企業データ取得または保存エラー:', error);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      setCurrentStatus('エラーが発生しました。詳細はコンソールを確認してください。');
+      setFetchResults({ total: 0, time: duration, error: true });
     } finally {
-      setIsRunning(false);
       setTimeout(() => {
-        setProgress(0);
-        setCurrentStatus('');
-      }, 5000);
+        if (!isOperationRunning) {
+            setCurrentStatus('');
+        }
+      }, 7000);
+    }
+  };
+
+  // Handler for clearing all data
+  const handleClearAllData = async () => {
+    if (isOperationRunning) return;
+    setCurrentStatus('すべてのデータを削除しています...');
+    try {
+      await clearAllData();
+      setCurrentStatus('すべてのデータが正常に削除されました。');
+      setFetchResults(null);
+    } catch (error) {
+      console.error('全データ削除エラー:', error);
+      setCurrentStatus('データの削除に失敗しました。');
+    } finally {
+        setTimeout(() => {
+            if (!isOperationRunning) {
+                setCurrentStatus('');
+            }
+        }, 5000);
     }
   };
 
   const getSelectedGroupLabel = () => {
-    const dataSourceGroups = [
-      { value: 'all', label: '全データソース' },
-      { value: 'nta', label: '国税庁法人番号' },
-      { value: 'fuma', label: 'FUMA（フーマ）' },
-      { value: 'listed', label: '上場企業特化' },
-      { value: 'priority', label: '優先度高' }
-    ];
-    const group = dataSourceGroups.find(g => g.value === selectedDataSourceGroup);
-    return group ? group.label : '全データソース';
-  };
-
-  const handleStopBackground = () => {
-    BusinessDataService.stopBackgroundFetch();
-    setCurrentStatus('バックグラウンド処理を停止しました');
-    setTimeout(() => setCurrentStatus(''), 2000);
-  };
-
-  const handleClearAllData = async () => {
-    if (confirm('すべての蓄積データを削除しますか？この操作は取り消せません。')) {
-      setCurrentStatus('データを削除中...');
-      try {
-        await clearAllData();
-        setCurrentStatus('すべてのデータを削除しました');
-        refreshData();
-      } catch (error) {
-        console.error('データ削除エラー:', error);
-        setCurrentStatus('データ削除に失敗しました');
-      }
-      setTimeout(() => setCurrentStatus(''), 2000);
-    }
-  };
-
-  const handleRemoveSampleData = () => {
-    if (confirm('サンプルデータのみを削除しますか？')) {
-      setCurrentStatus('サンプルデータを削除中...');
-      try {
-        removeSampleData();
-        setCurrentStatus('サンプルデータを削除しました');
-        refreshData();
-      } catch (error) {
-        console.error('サンプルデータ削除エラー:', error);
-        setCurrentStatus('サンプルデータ削除に失敗しました');
-      }
-      setTimeout(() => setCurrentStatus(''), 2000);
-    }
+    const group = CorporateDataService.getDataSourceGroups().find(g => g.value === selectedDataSourceGroup);
+    return group ? group.label : '全データ';
   };
 
   const getStatusIcon = (type: string, enabled: boolean = true) => {
-    if (!enabled) return <Clock className="h-4 w-4 text-gray-400" />;
-    
+    if (!enabled) return <AlertCircle className="h-5 w-5 text-gray-400" />;
     switch (type) {
-      case 'api':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'scrape':
-        return <AlertCircle className="h-4 w-4 text-blue-500" />;
-      case 'csv':
-        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+      case 'API':
+        return <Activity className="h-5 w-5 text-blue-500" />;
+      case 'Webスクレイピング':
+        return <RefreshCw className="h-5 w-5 text-green-500" />;
+      case 'ファイル':
+        return <Database className="h-5 w-5 text-purple-500" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return <AlertCircle className="h-5 w-5 text-gray-500" />;
     }
   };
 
   const getStatusBadge = (type: string, enabled: boolean = true) => {
     if (!enabled) return <Badge variant="outline">無効</Badge>;
-    
     switch (type) {
-      case 'api':
-        return <Badge variant="default">API接続</Badge>;
-      case 'scrape':
-        return <Badge variant="secondary">スクレイピング</Badge>;
-      case 'csv':
-        return <Badge variant="outline">CSV取得</Badge>;
+      case 'API':
+        return <Badge className="bg-blue-100 text-blue-800">API</Badge>;
+      case 'Webスクレイピング':
+        return <Badge className="bg-green-100 text-green-800">Webスクレイピング</Badge>;
+      case 'ファイル':
+        return <Badge className="bg-purple-100 text-purple-800">ファイル</Badge>;
       default:
-        return <Badge variant="outline">未実装</Badge>;
+        return <Badge variant="secondary">その他</Badge>;
     }
   };
 
   const getPriorityColor = (priority: number) => {
-    if (priority <= 2) return 'bg-green-100 border-green-300';
-    if (priority <= 4) return 'bg-blue-100 border-blue-300';
-    return 'bg-gray-100 border-gray-300';
+    if (priority <= 3) return 'border-green-300';
+    if (priority <= 7) return 'border-yellow-300';
+    return 'border-red-300';
   };
 
   return (
-    <DashboardLayout>
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">企業データソース管理</h1>
-            <p className="text-muted-foreground">
-              信頼性の高い企業情報データソースの設定と取得状況
-            </p>
-          </div>
-        </div>
-
-        {/* 企業データソース選択UI */}
-        <DataSourceSelector
-          selectedGroup={selectedDataSourceGroup}
-          onGroupSelect={setSelectedDataSourceGroup}
-          onStartFetch={handleCorporateDataFetch}
-          isRunning={isRunning}
-        />
-
-        {/* 日本地図セクション */}
-        <JapanMap
-          selectedPrefectures={selectedPrefectures}
-          onPrefectureSelect={handlePrefectureSelect}
-          businessData={prefectureStats}
-        />
-
-        {/* 進捗とステータス */}
+    <DashboardLayout title="データソース" description="信頼性の高い企業情報データソースの設定と取得状況">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -271,64 +172,73 @@ const DataSources = () => {
               取得状況
             </CardTitle>
             <CardDescription>
-              蓄積データ: {dataStats?.totalCount || 0}社
-              {backgroundStatus?.isRunning && " • バックグラウンド処理中"}
+              蓄積データ: {stats?.totalCount || 0}社
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* 進捗表示 */}
-            {isRunning && (
-              <div className="p-4 bg-blue-50 rounded-lg border">
-                <div className="flex items-center mb-2">
-                  <RefreshCw className="h-4 w-4 text-blue-500 mr-2 animate-spin" />
-                  <span className="text-sm font-medium text-blue-900">
-                    {currentStatus}
-                  </span>
-                </div>
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-blue-800 mt-1">
-                  {progress.toFixed(0)}% 完了
+            <DataSourceSelector
+              selectedGroup={selectedDataSourceGroup}
+              onGroupSelect={setSelectedDataSourceGroup}
+              onStartFetch={handleCorporateDataFetch}
+              isRunning={isSaving}
+            />
+
+            {(isSaving || (progress > 0 && progress < 100)) && (
+              <div>
+                <Progress value={progress} className="w-full" />
+                <p className="text-sm text-muted-foreground mt-2 flex items-center">
+                  {(isSaving || progress > 0) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {currentStatus}
                 </p>
               </div>
             )}
 
-            {/* 取得結果表示 */}
-            {fetchResults && (
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center">
-                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                  <span className="text-sm font-medium text-green-900">
-                    取得完了: {fetchResults.total}社 (処理時間: {fetchResults.time})
-                  </span>
-                </div>
+            {fetchResults && !isSaving && (
+              <div className={`p-3 rounded-md text-sm ${fetchResults.error ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'}`}>
+                {fetchResults.error 
+                  ? <AlertCircle className="inline-block mr-2 h-4 w-4" />
+                  : <CheckCircle className="inline-block mr-2 h-4 w-4" />
+                }
+                {fetchResults.error 
+                  ? `エラーが発生しました。 (処理時間: ${fetchResults.time}秒)`
+                  : `取得完了: ${fetchResults.total}社 (処理時間: ${fetchResults.time}秒)`
+                }
               </div>
             )}
 
-            {/* 管理ボタン */}
             <div className="flex gap-2 flex-wrap">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRemoveSampleData}
-                disabled={isRunning}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                サンプル削除
-              </Button>
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                onClick={handleClearAllData}
-                disabled={isRunning}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                全削除
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    disabled={isOperationRunning || (stats?.totalCount || 0) === 0}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-2 h-4 w-4" />
+                    )}
+                    全削除
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>本当によろしいですか？</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      すべての蓄積データ（{stats?.totalCount || 0}社）を削除します。この操作は取り消せません。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearAllData}>続行</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>
 
-        {/* 企業データソース一覧 */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -356,7 +266,7 @@ const DataSources = () => {
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div>優先度: {source.priority}</div>
                     <div>最大取得件数: {source.maxRecords}</div>
-                    <div>URL: {source.url}</div>
+                    <div>URL: <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{source.url}</a></div>
                     <div className="truncate">{source.description}</div>
                   </div>
                 </div>

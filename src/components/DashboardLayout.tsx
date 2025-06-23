@@ -11,9 +11,11 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 interface DashboardLayoutProps {
   children: ReactNode;
   onLogout?: () => void;
+  title?: string;
+  description?: string;
 }
 
-const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, onLogout, title, description }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, loading } = useUserProfile();
@@ -183,6 +185,12 @@ const DashboardLayout = ({ children, onLogout }: DashboardLayoutProps) => {
 
           {/* メインコンテンツエリア */}
           <div className="lg:col-span-3">
+            {(title || description) && (
+              <div className="mb-6">
+                {title && <h1 className="text-3xl font-bold text-gray-900">{title}</h1>}
+                {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+              </div>
+            )}
             {children}
           </div>
         </div>

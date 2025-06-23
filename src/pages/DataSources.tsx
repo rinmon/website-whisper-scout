@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Database, CheckCircle, AlertCircle, Trash2, Loader2, RefreshCw, MapPin, Activity } from "lucide-react";
+import { Database, CheckCircle, AlertCircle, Trash2, Loader2, RefreshCw, MapPin, Activity, Plus } from "lucide-react";
 import { CorporateDataService, ProgressCallback } from "@/services/corporateDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -31,13 +31,13 @@ const DataSources = () => {
   // Hook for data operations
   const {
     stats,
-    saveBusinesses,
-    clearAllData,
-    isSaving,
+    saveBusinessesToMaster,
+    clearAllUserData,
+    isSavingBusinesses,
     isDeleting,
   } = useBusinessData();
 
-  const isOperationRunning = isSaving || isDeleting;
+  const isOperationRunning = isSavingBusinesses || isDeleting;
 
   const corporateDataSources = CorporateDataService.getAvailableDataSources();
 
@@ -77,13 +77,13 @@ const DataSources = () => {
           break;
       }
 
-      // Save fetched data to Supabase via the hook
+      // Save fetched data to Supabase master data
       if (corporateData.length > 0) {
-        setCurrentStatus(`取得した${corporateData.length}件のデータを保存中...`);
-        await saveBusinesses(corporateData);
+        setCurrentStatus(`取得した${corporateData.length}件のデータを企業マスターに保存中...`);
+        const savedBusinesses = await saveBusinessesToMaster(corporateData);
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        setFetchResults({ total: corporateData.length, time: duration });
-        setCurrentStatus(`✅ 取得完了: ${corporateData.length}社 (処理時間: ${duration}秒)`);
+        setFetchResults({ total: savedBusinesses.length, time: duration });
+        setCurrentStatus(`✅ 企業マスターデータ保存完了: ${savedBusinesses.length}社 (処理時間: ${duration}秒)`);
       } else {
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         setFetchResults({ total: 0, time: duration });
@@ -103,17 +103,17 @@ const DataSources = () => {
     }
   };
 
-  // Handler for clearing all data
-  const handleClearAllData = async () => {
+  // Handler for clearing all user data
+  const handleClearAllUserData = async () => {
     if (isOperationRunning) return;
-    setCurrentStatus('すべてのデータを削除しています...');
+    setCurrentStatus('ユーザーの企業関連付けデータを削除しています...');
     try {
-      await clearAllData();
-      setCurrentStatus('すべてのデータが正常に削除されました。');
+      await clearAllUserData();
+      setCurrentStatus('ユーザーの企業関連付けデータが正常に削除されました。');
       setFetchResults(null);
     } catch (error) {
-      console.error('全データ削除エラー:', error);
-      setCurrentStatus('データの削除に失敗しました。');
+      console.error('ユーザーデータ削除エラー:', error);
+      setCurrentStatus('ユーザーデータの削除に失敗しました。');
     } finally {
         setTimeout(() => {
             if (!isOperationRunning) {
@@ -169,31 +169,46 @@ const DataSources = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Database className="mr-2 h-5 w-5" />
-              取得状況
+              データ取得・管理状況
             </CardTitle>
             <CardDescription>
-              蓄積データ: {stats?.totalCount || 0}社
+              あなたの企業リスト: {stats?.totalCount || 0}社
+              <br />
+              <span className="text-sm text-muted-foreground">
+                企業マスターデータから選択して、自分の企業リストに追加できます
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
+                <Plus className="mr-2 h-4 w-4" />
+                新しいアーキテクチャについて
+              </h4>
+              <p className="text-sm text-blue-700">
+                企業データは共有マスターデータとして管理され、各ユーザーが必要な企業を選択して自分のリストに追加できます。
+                データソース機能で取得したデータは全ユーザーが利用可能な企業マスターに保存されます。
+              </p>
+            </div>
+
             <DataSourceSelector
               selectedGroup={selectedDataSourceGroup}
               onGroupSelect={setSelectedDataSourceGroup}
               onStartFetch={handleCorporateDataFetch}
-              isRunning={isSaving}
+              isRunning={isSavingBusinesses}
             />
 
-            {(isSaving || (progress > 0 && progress < 100)) && (
+            {(isSavingBusinesses || (progress > 0 && progress < 100)) && (
               <div>
                 <Progress value={progress} className="w-full" />
                 <p className="text-sm text-muted-foreground mt-2 flex items-center">
-                  {(isSaving || progress > 0) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {(isSavingBusinesses || progress > 0) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {currentStatus}
                 </p>
               </div>
             )}
 
-            {fetchResults && !isSaving && (
+            {fetchResults && !isSavingBusinesses && (
               <div className={`p-3 rounded-md text-sm ${fetchResults.error ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'}`}>
                 {fetchResults.error 
                   ? <AlertCircle className="inline-block mr-2 h-4 w-4" />
@@ -201,7 +216,7 @@ const DataSources = () => {
                 }
                 {fetchResults.error 
                   ? `エラーが発生しました。 (処理時間: ${fetchResults.time}秒)`
-                  : `取得完了: ${fetchResults.total}社 (処理時間: ${fetchResults.time}秒)`
+                  : `企業マスターデータ保存完了: ${fetchResults.total}社 (処理時間: ${fetchResults.time}秒)`
                 }
               </div>
             )}
@@ -219,19 +234,19 @@ const DataSources = () => {
                     ) : (
                       <Trash2 className="mr-2 h-4 w-4" />
                     )}
-                    全削除
+                    自分の企業リストを削除
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>本当によろしいですか？</AlertDialogTitle>
                     <AlertDialogDescription>
-                      すべての蓄積データ（{stats?.totalCount || 0}社）を削除します。この操作は取り消せません。
+                      あなたの企業リスト（{stats?.totalCount || 0}社）の関連付けを削除します。企業マスターデータは削除されません。この操作は取り消せません。
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClearAllData}>続行</AlertDialogAction>
+                    <AlertDialogAction onClick={handleClearAllUserData}>続行</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>

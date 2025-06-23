@@ -1,6 +1,6 @@
+
 export interface Business {
   id: string; // UUIDはstringとして扱う
-  user_id: string; // どのユーザーのデータかを示すFK
   name: string;
   industry?: string;
   location?: string;
@@ -28,6 +28,43 @@ export interface Business {
   data_source?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// ユーザーと企業の関連付けテーブル
+export interface UserBusiness {
+  id: string;
+  user_id: string;
+  business_id: string;
+  user_overall_score?: number;
+  user_technical_score?: number;
+  user_eeat_score?: number;
+  user_content_score?: number;
+  user_ai_content_score?: number;
+  user_experience_score?: number;
+  user_seo_score?: number;
+  user_notes?: string;
+  user_tags?: string[];
+  is_favorite?: boolean;
+  last_user_analyzed?: string;
+  added_at: string;
+  updated_at: string;
+}
+
+// ユーザーの企業データ（Business + UserBusiness の結合）
+export interface UserBusinessData extends Business {
+  user_business_id?: string;
+  user_overall_score?: number;
+  user_technical_score?: number;
+  user_eeat_score?: number;
+  user_content_score?: number;
+  user_ai_content_score?: number;
+  user_experience_score?: number;
+  user_seo_score?: number;
+  user_notes?: string;
+  user_tags?: string[];
+  is_favorite?: boolean;
+  last_user_analyzed?: string;
+  added_at?: string;
 }
 
 export interface BusinessAnalysis {
@@ -59,7 +96,7 @@ export interface BusinessAnalysis {
 }
 
 // Supabaseへの保存・更新時に使用するペイロードの型定義
-// DBが自動生成するカラムや、サーバー側で付与するuser_idは除外
+// user_id は除外（共有マスターデータのため）
 export interface BusinessPayload {
   name: string;
   industry?: string;
@@ -86,4 +123,20 @@ export interface BusinessPayload {
   last_analyzed?: string;
   is_new?: boolean;
   data_source?: string;
+}
+
+// ユーザー企業関連付けのペイロード
+export interface UserBusinessPayload {
+  business_id: string;
+  user_overall_score?: number;
+  user_technical_score?: number;
+  user_eeat_score?: number;
+  user_content_score?: number;
+  user_ai_content_score?: number;
+  user_experience_score?: number;
+  user_seo_score?: number;
+  user_notes?: string;
+  user_tags?: string[];
+  is_favorite?: boolean;
+  last_user_analyzed?: string;
 }

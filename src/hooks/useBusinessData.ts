@@ -1,5 +1,6 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Business, BusinessPayload } from '@/types/business';
+import { BusinessPayload, UserBusinessData, UserBusinessPayload } from '@/types/business';
 import { SupabaseBusinessService } from '@/services/supabaseBusinessService';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
@@ -9,38 +10,38 @@ const defaultStats = {
   totalCount: 0,
   withWebsite: 0,
   withoutWebsite: 0,
+  favoriteCount: 0,
   byIndustry: {},
   byLocation: {},
 };
 
 /**
- * ログインユーザーに紐づく企業データと統計情報を管理するカスタムフック
+ * 新しいアーキテクチャに対応した企業データ管理フック
  */
 export const useBusinessData = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const queryKeyBusinesses = ['businesses', user?.id];
-  const queryKeyStats = ['businessStats', user?.id];
+  const queryKeyUserBusinesses = ['userBusinesses', user?.id];
+  const queryKeyStats = ['userBusinessStats', user?.id];
 
-  // Supabaseからビジネスデータを取得するためのクエリ
-  const { data: businesses = [], isLoading: isBusinessesLoading } = useQuery<Business[], Error>({ 
-    queryKey: queryKeyBusinesses,
+  // ユーザーの企業データを取得するためのクエリ
+  const { data: businesses = [], isLoading: isBusinessesLoading } = useQuery<UserBusinessData[], Error>({ 
+    queryKey: queryKeyUserBusinesses,
     queryFn: async () => {
       if (!user) {
         console.log('❌ [useBusinessData] No authenticated user found');
         return [];
       }
-      console.log('✅ [useBusinessData] Fetching businesses for user.id:', user.id);
-      const result = await SupabaseBusinessService.getBusinesses(user.id);
-      console.log(`📊 [useBusinessData] Fetched ${result.length} businesses:`, result);
-      console.log('🔍 [useBusinessData] Businesses data:', businesses);
+      console.log('✅ [useBusinessData] Fetching user businesses for user.id:', user.id);
+      const result = await SupabaseBusinessService.getUserBusinesses(user.id);
+      console.log(`📊 [useBusinessData] Fetched ${result.length} user businesses:`, result);
       return result;
     },
     enabled: !!user,
   });
 
-  // Supabaseから統計データを取得するためのクエリ
+  // ユーザーの統計データを取得するためのクエリ
   const { data: stats = defaultStats, isLoading: isStatsLoading } = useQuery({
     queryKey: queryKeyStats,
     queryFn: async () => {
@@ -49,9 +50,8 @@ export const useBusinessData = () => {
         return defaultStats;
       }
       console.log('✅ [useBusinessData] Fetching stats for user.id:', user.id);
-      const result = await SupabaseBusinessService.getBusinessStats(user.id);
+      const result = await SupabaseBusinessService.getUserBusinessStats(user.id);
       console.log('📈 [useBusinessData] Fetched stats:', result);
-      console.log('🔍 [useBusinessData] Stats data:', stats);
       return result;
     },
     enabled: !!user,
@@ -59,53 +59,88 @@ export const useBusinessData = () => {
 
   // データを無効化して再取得をトリガーする共通関数
   const invalidateQueries = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeyBusinesses });
+    queryClient.invalidateQueries({ queryKey: queryKeyUserBusinesses });
     queryClient.invalidateQueries({ queryKey: queryKeyStats });
-    console.log('[useBusinessData] Business and stats queries invalidated.');
+    console.log('[useBusinessData] User business and stats queries invalidated.');
   };
 
-  // データ保存用のMutation
+  // 企業マスターデータ保存用のMutation（データソース機能用）
   const saveBusinessesMutation = useMutation({
     mutationFn: (newBusinesses: BusinessPayload[]) => {
-      if (!user) throw new Error('User is not authenticated.');
-      return SupabaseBusinessService.saveBusinesses(newBusinesses, user.id);
+      return SupabaseBusinessService.saveBusinesses(newBusinesses);
     },
-    onSuccess: () => {
-      console.log('[useBusinessData] Save successful, invalidating queries.');
-      invalidateQueries();
+    onSuccess: (savedBusinesses) => {
+      console.log(`[useBusinessData] Saved ${savedBusinesses.length} businesses to master data.`);
+      // 企業マスターデータの保存後は、ユーザーデータのキャッシュを無効化しない
+      // ユーザーが手動で企業を追加するまでは関連付けられない
     },
     onError: (error) => {
       console.error('[useBusinessData] Failed to save businesses:', error);
     },
   });
 
-  // 全データ削除用のMutation
-  const deleteAllMutation = useMutation({
+  // 企業をユーザーのリストに追加するMutation
+  const addBusinessToUserMutation = useMutation({
+    mutationFn: ({ businessId, userBusinessData }: { businessId: string; userBusinessData?: Partial<UserBusinessPayload> }) => {
+      if (!user) throw new Error('User is not authenticated.');
+      return SupabaseBusinessService.addBusinessToUser(user.id, businessId, userBusinessData);
+    },
+    onSuccess: () => {
+      console.log('[useBusinessData] Business added to user successfully.');
+      invalidateQueries();
+    },
+    onError: (error) => {
+      console.error('[useBusinessData] Failed to add business to user:', error);
+    },
+  });
+
+  // 複数企業をユーザーのリストに一括追加するMutation
+  const addMultipleBusinessesToUserMutation = useMutation({
+    mutationFn: (businessIds: string[]) => {
+      if (!user) throw new Error('User is not authenticated.');
+      return SupabaseBusinessService.addMultipleBusinessesToUser(user.id, businessIds);
+    },
+    onSuccess: (result) => {
+      console.log(`[useBusinessData] ${result.length} businesses added to user successfully.`);
+      invalidateQueries();
+    },
+    onError: (error) => {
+      console.error('[useBusinessData] Failed to add multiple businesses to user:', error);
+    },
+  });
+
+  // ユーザーの企業データ更新用のMutation
+  const updateUserBusinessMutation = useMutation({
+    mutationFn: ({ userBusinessId, updateData }: { userBusinessId: string; updateData: Partial<UserBusinessPayload> }) => {
+      if (!user) throw new Error('User is not authenticated.');
+      return SupabaseBusinessService.updateUserBusiness(user.id, userBusinessId, updateData);
+    },
+    onSuccess: () => {
+      console.log('[useBusinessData] User business data updated successfully.');
+      invalidateQueries();
+    },
+    onError: (error) => {
+      console.error('[useBusinessData] Failed to update user business data:', error);
+    },
+  });
+
+  // 全ユーザーデータ削除用のMutation
+  const deleteAllUserDataMutation = useMutation({
     mutationFn: () => {
       if (!user) throw new Error('User is not authenticated to delete data.');
-      return SupabaseBusinessService.deleteAllBusinessData(user.id);
+      return SupabaseBusinessService.deleteAllUserBusinessData(user.id);
     },
     onSuccess: (result) => {
       if (result.error) {
         throw new Error(result.error.message);
       }
-      console.log('[useBusinessData] Delete successful, invalidating queries.');
+      console.log('[useBusinessData] All user business data deleted successfully.');
       invalidateQueries();
     },
     onError: (error) => {
-      console.error('[useBusinessData] Failed to delete all data:', error);
+      console.error('[useBusinessData] Failed to delete all user data:', error);
     },
   });
-
-  // コンポーネントがマウントされたときに認証状態とデータをログ出力
-  useEffect(() => {
-    console.log('🔍 [useBusinessData] Current auth state:', { 
-      userId: user?.id, 
-      authenticated: !!user, 
-      businessCount: businesses.length,
-      stats: stats
-    });
-  }, [user, businesses, stats]);
 
   // コンポーネントがマウントされたときに認証状態とデータをログ出力
   useEffect(() => {
@@ -118,20 +153,34 @@ export const useBusinessData = () => {
   }, [user, businesses, stats]);
 
   return {
+    // データ
     businesses,
     stats,
     isLoading: isBusinessesLoading || isStatsLoading,
-    isSaving: saveBusinessesMutation.isPending,
-    isDeleting: deleteAllMutation.isPending,
-    // Mutations
-    saveBusinesses: saveBusinessesMutation.mutateAsync,
-    clearAllData: deleteAllMutation.mutateAsync,
+    
+    // 企業マスターデータ操作（データソース機能用）
+    isSavingBusinesses: saveBusinessesMutation.isPending,
+    saveBusinessesToMaster: saveBusinessesMutation.mutateAsync,
+    
+    // ユーザー企業データ操作
+    isAddingBusiness: addBusinessToUserMutation.isPending,
+    addBusinessToUser: addBusinessToUserMutation.mutateAsync,
+    
+    isAddingMultipleBusinesses: addMultipleBusinessesToUserMutation.isPending,
+    addMultipleBusinessesToUser: addMultipleBusinessesToUserMutation.mutateAsync,
+    
+    isUpdatingUserBusiness: updateUserBusinessMutation.isPending,
+    updateUserBusiness: updateUserBusinessMutation.mutateAsync,
+    
+    isDeleting: deleteAllUserDataMutation.isPending,
+    clearAllUserData: deleteAllUserDataMutation.mutateAsync,
+    
     // Manual refetch
     refreshData: invalidateQueries,
   };
 };
 
-// 特定企業の詳細分析データを取得するフック
+// 特定企業の詳細分析データを取得するフック（変更なし）
 export const useBusinessAnalysis = (businessId: string) => {
   return useQuery({
     queryKey: ['business-analysis', businessId],

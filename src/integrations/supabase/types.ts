@@ -185,6 +185,71 @@ export type Database = {
         }
         Relationships: []
       }
+      user_businesses: {
+        Row: {
+          added_at: string
+          business_id: string
+          id: string
+          is_favorite: boolean | null
+          last_user_analyzed: string | null
+          updated_at: string
+          user_ai_content_score: number | null
+          user_content_score: number | null
+          user_eeat_score: number | null
+          user_experience_score: number | null
+          user_id: string
+          user_notes: string | null
+          user_overall_score: number | null
+          user_seo_score: number | null
+          user_tags: string[] | null
+          user_technical_score: number | null
+        }
+        Insert: {
+          added_at?: string
+          business_id: string
+          id?: string
+          is_favorite?: boolean | null
+          last_user_analyzed?: string | null
+          updated_at?: string
+          user_ai_content_score?: number | null
+          user_content_score?: number | null
+          user_eeat_score?: number | null
+          user_experience_score?: number | null
+          user_id: string
+          user_notes?: string | null
+          user_overall_score?: number | null
+          user_seo_score?: number | null
+          user_tags?: string[] | null
+          user_technical_score?: number | null
+        }
+        Update: {
+          added_at?: string
+          business_id?: string
+          id?: string
+          is_favorite?: boolean | null
+          last_user_analyzed?: string | null
+          updated_at?: string
+          user_ai_content_score?: number | null
+          user_content_score?: number | null
+          user_eeat_score?: number | null
+          user_experience_score?: number | null
+          user_id?: string
+          user_notes?: string | null
+          user_overall_score?: number | null
+          user_seo_score?: number | null
+          user_tags?: string[] | null
+          user_technical_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_businesses_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

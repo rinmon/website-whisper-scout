@@ -26,7 +26,7 @@ export const useBusinessData = () => {
   const queryKeyStats = ['userBusinessStats', user?.id];
 
   // ユーザーの企業データを取得するためのクエリ
-  const { data: businesses = [], isLoading: isBusinessesLoading } = useQuery<UserBusinessData[], Error>({ 
+  const { data: businesses = [], isLoading: isBusinessesLoading, error } = useQuery<UserBusinessData[], Error>({ 
     queryKey: queryKeyUserBusinesses,
     queryFn: async () => {
       if (!user) {
@@ -62,6 +62,12 @@ export const useBusinessData = () => {
     queryClient.invalidateQueries({ queryKey: queryKeyUserBusinesses });
     queryClient.invalidateQueries({ queryKey: queryKeyStats });
     console.log('[useBusinessData] User business and stats queries invalidated.');
+  };
+
+  // 統計データ取得のための関数（後方互換性）
+  const getDataStats = async () => {
+    if (!user) return defaultStats;
+    return await SupabaseBusinessService.getUserBusinessStats(user.id);
   };
 
   // 企業マスターデータ保存用のMutation（データソース機能用）
@@ -157,6 +163,10 @@ export const useBusinessData = () => {
     businesses,
     stats,
     isLoading: isBusinessesLoading || isStatsLoading,
+    error,
+    
+    // 後方互換性のための関数
+    getDataStats,
     
     // 企業マスターデータ操作（データソース機能用）
     isSavingBusinesses: saveBusinessesMutation.isPending,

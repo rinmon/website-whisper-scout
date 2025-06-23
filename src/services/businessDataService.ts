@@ -157,20 +157,20 @@ export class BusinessDataService {
     try {
       // 1. 企業データソースから取得
       onProgress?.('企業データを取得中...', currentStep++, totalSteps);
-      const corporateData = await CorporateDataService.fetchFromAllSources(onProgress);
+      const corporateData = await CorporateDataService.fetchAll(onProgress);
       
       // 企業データをBusinessオブジェクトに変換
       const corporateBusinesses = corporateData.map((corp, index) => ({
         id: `corporate-${Date.now()}-${index}`, // 一意な文字列IDを生成
         name: corp.name,
-        website_url: corp.website || '',
-        has_website: !!corp.website,
-        location: corp.prefecture || '不明',
+        website_url: corp.website_url || '',
+        has_website: !!corp.website_url,
+        location: corp.location || '不明',
         industry: corp.industry || '不明',
         phone: corp.phone || '',
         address: corp.address || '',
-        data_source: corp.source,
-        overall_score: corp.website ? Math.random() * 5 : 0,
+        data_source: corp.data_source,
+        overall_score: corp.website_url ? Math.random() * 5 : 0,
         technical_score: Math.random() * 5,
         eeat_score: Math.random() * 5,
         content_score: Math.random() * 5,

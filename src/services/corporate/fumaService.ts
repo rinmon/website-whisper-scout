@@ -1,6 +1,5 @@
 
 import { CorporateInfo } from '@/types/corporateData';
-import { MockDataGenerator } from './mockDataGenerator';
 import { AddressUtils } from './addressUtils';
 
 // FUMA特化のデータ取得サービス
@@ -58,23 +57,8 @@ export class FumaService {
 
     } catch (error) {
       console.error(`❌ FUMA データ取得エラー:`, error);
-      
-      // エラー時はフォールバックデータを返す（エラーデータは無視）
-      console.log(`🔄 FUMAフォールバックデータを生成中...`);
-      return this.generateFallbackData(industry);
+      // エラーの場合は空配列を返す
+      return [];
     }
-  }
-
-  // エラー時のフォールバックデータ生成
-  private static generateFallbackData(industry?: string): CorporateInfo[] {
-    const industries = industry ? [industry] : ['製造業', 'IT・通信', '建設業', '小売業', 'サービス業'];
-    const allData: CorporateInfo[] = [];
-    
-    for (const ind of industries) {
-      const data = MockDataGenerator.generateMockData('FUMA（フーマ）', 15, undefined, ind);
-      allData.push(...data);
-    }
-    
-    return allData;
   }
 }

@@ -1,6 +1,7 @@
 
 export interface Business {
   id: string; // UUIDはstringとして扱う
+  corporate_number?: string; // 法人番号
   name: string;
   industry?: string;
   location?: string;
@@ -98,6 +99,7 @@ export interface BusinessAnalysis {
 // Supabaseへの保存・更新時に使用するペイロードの型定義
 // user_id は除外（共有マスターデータのため）
 export interface BusinessPayload {
+  corporate_number?: string; // 法人番号
   name: string;
   industry?: string;
   location?: string;
@@ -123,6 +125,79 @@ export interface BusinessPayload {
   last_analyzed?: string;
   is_new?: boolean;
   data_source?: string;
+}
+
+// ウェブサイト分析結果の型定義
+export interface WebsiteAnalysis {
+  id: string;
+  business_id: string;
+  analyzed_at: string;
+  lighthouse_score?: any;
+  core_web_vitals?: any;
+  mobile_friendly?: boolean;
+  ssl_certificate?: boolean;
+  structured_data?: any;
+  meta_tags?: any;
+  eeat_factors?: any;
+  content_analysis?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+// 営業提案書の型定義
+export interface ProposalData {
+  basicInfo: {
+    companyName: string;
+    industry: string;
+    location: string;
+    websiteUrl?: string;
+    hasWebsite: boolean;
+    generateDate: string;
+  };
+  scores: {
+    overall: number;
+    technical: number;
+    eeat: number;
+    content: number;
+    userExperience: number;
+    seo: number;
+  };
+  improvements: Array<{
+    category: string;
+    priority: string;
+    items: string[];
+    expectedImpact: string;
+    timeline: string;
+  }>;
+  competitorAnalysis: {
+    summary: string;
+    avgScore?: number;
+    gap?: number;
+    topCompetitors?: Array<{
+      name: string;
+      score: number;
+      strengths: string[];
+    }>;
+  };
+  costBenefit: {
+    initialCost: number;
+    monthlyCost: number;
+    expectedAnnualBenefit: number;
+    roi: string;
+    paybackPeriod: string | number;
+  };
+  content: {
+    title: string;
+    sections: Array<{
+      title: string;
+      content: string[];
+    }>;
+  };
+  metadata: {
+    type: string;
+    generatedAt: string;
+    version: string;
+  };
 }
 
 // ユーザー企業関連付けのペイロード

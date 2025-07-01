@@ -52,13 +52,16 @@ export type Database = {
           address: string | null
           ai_content_score: number | null
           capital: string | null
+          catch_copy: string | null
           content_score: number | null
+          corporate_number: string | null
           created_at: string
           data_source: string | null
           description: string | null
           eeat_score: number | null
           employee_count: string | null
           established_year: number | null
+          establishment_date: string | null
           has_website: boolean | null
           id: string
           industry: string | null
@@ -66,23 +69,31 @@ export type Database = {
           last_analyzed: string | null
           location: string | null
           name: string
+          number_of_employees: string | null
           overall_score: number | null
           phone: string | null
+          phone_number: string | null
+          seo_score: number | null
           technical_score: number | null
           updated_at: string
+          user_experience_score: number | null
+          user_id: string | null
           website_url: string | null
         }
         Insert: {
           address?: string | null
           ai_content_score?: number | null
           capital?: string | null
+          catch_copy?: string | null
           content_score?: number | null
+          corporate_number?: string | null
           created_at?: string
           data_source?: string | null
           description?: string | null
           eeat_score?: number | null
           employee_count?: string | null
           established_year?: number | null
+          establishment_date?: string | null
           has_website?: boolean | null
           id?: string
           industry?: string | null
@@ -90,23 +101,31 @@ export type Database = {
           last_analyzed?: string | null
           location?: string | null
           name: string
+          number_of_employees?: string | null
           overall_score?: number | null
           phone?: string | null
+          phone_number?: string | null
+          seo_score?: number | null
           technical_score?: number | null
           updated_at?: string
+          user_experience_score?: number | null
+          user_id?: string | null
           website_url?: string | null
         }
         Update: {
           address?: string | null
           ai_content_score?: number | null
           capital?: string | null
+          catch_copy?: string | null
           content_score?: number | null
+          corporate_number?: string | null
           created_at?: string
           data_source?: string | null
           description?: string | null
           eeat_score?: number | null
           employee_count?: string | null
           established_year?: number | null
+          establishment_date?: string | null
           has_website?: boolean | null
           id?: string
           industry?: string | null
@@ -114,10 +133,15 @@ export type Database = {
           last_analyzed?: string | null
           location?: string | null
           name?: string
+          number_of_employees?: string | null
           overall_score?: number | null
           phone?: string | null
+          phone_number?: string | null
+          seo_score?: number | null
           technical_score?: number | null
           updated_at?: string
+          user_experience_score?: number | null
+          user_id?: string | null
           website_url?: string | null
         }
         Relationships: []
@@ -243,6 +267,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_businesses_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      website_analysis: {
+        Row: {
+          analyzed_at: string
+          business_id: string
+          content_analysis: Json | null
+          core_web_vitals: Json | null
+          created_at: string
+          eeat_factors: Json | null
+          id: string
+          lighthouse_score: Json | null
+          meta_tags: Json | null
+          mobile_friendly: boolean | null
+          ssl_certificate: boolean | null
+          structured_data: Json | null
+          updated_at: string
+        }
+        Insert: {
+          analyzed_at?: string
+          business_id: string
+          content_analysis?: Json | null
+          core_web_vitals?: Json | null
+          created_at?: string
+          eeat_factors?: Json | null
+          id?: string
+          lighthouse_score?: Json | null
+          meta_tags?: Json | null
+          mobile_friendly?: boolean | null
+          ssl_certificate?: boolean | null
+          structured_data?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          analyzed_at?: string
+          business_id?: string
+          content_analysis?: Json | null
+          core_web_vitals?: Json | null
+          created_at?: string
+          eeat_factors?: Json | null
+          id?: string
+          lighthouse_score?: Json | null
+          meta_tags?: Json | null
+          mobile_friendly?: boolean | null
+          ssl_certificate?: boolean | null
+          structured_data?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_analysis_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"

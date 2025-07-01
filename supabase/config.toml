@@ -1,1 +1,20 @@
-project_id = "yobzbfapxavfdtznhpba"
+project_id = "e66027f6-c9cf-4728-b974-9afda5978990"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[functions.scrape-business-data]
+verify_jwt = false
+
+[functions.analyze-website]
+verify_jwt = false
+
+[functions.generate-proposal]
+verify_jwt = false

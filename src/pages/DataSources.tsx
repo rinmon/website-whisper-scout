@@ -165,11 +165,17 @@ const DataSources = () => {
   return (
     <DashboardLayout title="データソース" description="実際のWebサイトからのスクレイピングによる企業情報データ取得">
       <div className="space-y-6">
-        <Card>
+        <Card className={isOperationRunning ? 'ring-2 ring-blue-200 bg-blue-50/30' : ''}>
           <CardHeader>
             <CardTitle className="flex items-center">
               <Database className="mr-2 h-5 w-5" />
               リアルデータ取得・管理状況
+              {isOperationRunning && (
+                <Badge variant="outline" className="ml-2 border-blue-500 text-blue-700">
+                  <Activity className="w-3 h-3 mr-1 animate-pulse" />
+                  処理中
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription>
               あなたの企業リスト: {stats?.totalCount || 0}社
@@ -199,25 +205,44 @@ const DataSources = () => {
             />
 
             {(isSavingBusinesses || (progress > 0 && progress < 100)) && (
-              <div>
-                <Progress value={progress} className="w-full" />
-                <p className="text-sm text-muted-foreground mt-2 flex items-center">
-                  {(isSavingBusinesses || progress > 0) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">データ取得中...</span>
+                  </div>
+                  <span className="text-xs text-blue-700 font-medium">{Math.round(progress)}%</span>
+                </div>
+                <Progress value={progress} className="w-full h-3" />
+                <p className="text-sm text-blue-800">
                   {currentStatus}
                 </p>
               </div>
             )}
 
             {fetchResults && !isSavingBusinesses && (
-              <div className={`p-3 rounded-md text-sm ${fetchResults.error ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-green-50 border border-green-200 text-green-800'}`}>
-                {fetchResults.error 
-                  ? <AlertCircle className="inline-block mr-2 h-4 w-4" />
-                  : <CheckCircle className="inline-block mr-2 h-4 w-4" />
-                }
-                {fetchResults.error 
-                  ? `エラーが発生しました。 (処理時間: ${fetchResults.time}秒)`
-                  : `企業マスターデータ保存完了: ${fetchResults.total}社 (処理時間: ${fetchResults.time}秒)`
-                }
+              <div className={`p-4 rounded-lg border-l-4 ${fetchResults.error 
+                ? 'bg-red-50 border-red-500 text-red-900' 
+                : 'bg-green-50 border-green-500 text-green-900'
+              }`}>
+                <div className="flex items-center mb-2">
+                  {fetchResults.error 
+                    ? <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                    : <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  }
+                  <span className="font-medium">
+                    {fetchResults.error ? 'データ取得エラー' : 'データ取得完了'}
+                  </span>
+                </div>
+                <p className="text-sm">
+                  {fetchResults.error 
+                    ? `処理中にエラーが発生しました。詳細はコンソールログを確認してください。`
+                    : `${fetchResults.total}社の企業データを正常に取得・保存しました。`
+                  }
+                </p>
+                <p className="text-xs mt-1 opacity-75">
+                  処理時間: {fetchResults.time}秒
+                </p>
               </div>
             )}
 

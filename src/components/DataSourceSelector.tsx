@@ -222,10 +222,17 @@ const DataSourceSelector = ({ selectedGroup, onGroupSelect, onStartFetch, isRunn
               <Button
                 onClick={onStartFetch}
                 disabled={isRunning}
-                className="min-w-[120px]"
+                className={`min-w-[140px] transition-all duration-200 ${
+                  isRunning 
+                    ? 'bg-blue-600 hover:bg-blue-600' 
+                    : 'hover:bg-primary/90 hover:scale-105'
+                }`}
               >
                 {isRunning ? (
-                  <>処理中...</>
+                  <>
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    データ取得中...
+                  </>
                 ) : (
                   <>
                     <Play className="mr-2 h-4 w-4" />

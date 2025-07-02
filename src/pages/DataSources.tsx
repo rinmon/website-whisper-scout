@@ -45,7 +45,8 @@ const DataSources = () => {
   const handleCorporateDataFetch = async () => {
     if (isOperationRunning) return;
 
-    setProgress(0);
+    // プログレスバーを表示するために初期値を設定
+    setProgress(1);
     setCurrentStatus(`${getSelectedGroupLabel()}の企業情報取得を開始...`);
     setFetchResults(null);
     const startTime = Date.now();

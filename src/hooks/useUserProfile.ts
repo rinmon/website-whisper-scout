@@ -29,7 +29,7 @@ export const useUserProfile = () => {
           .from('profiles')
           .select('id, full_name, avatar_url, role')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error('Profile fetch error:', error);
@@ -41,9 +41,32 @@ export const useUserProfile = () => {
             role: 'user',
             email: user.email
           });
-        } else {
+        } else if (data) {
           setProfile({
             ...data,
+            email: user.email
+          });
+        } else {
+          // プロファイルが存在しない場合は作成
+          const { data: newProfile, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              full_name: user.email?.split('@')[0] || 'ユーザー',
+              role: 'user'
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('Profile creation error:', insertError);
+          }
+
+          setProfile({
+            id: user.id,
+            full_name: user.email?.split('@')[0] || 'ユーザー',
+            avatar_url: null,
+            role: 'user',
             email: user.email
           });
         }

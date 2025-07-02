@@ -17,59 +17,59 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Edge Function 開始 - 実データスクレイピング');
+    console.log('🔄 Edge Function 開始 - デバッグモード');
     const { source, prefecture = '東京都', limit = 25 } = await req.json();
     
-    console.log(`🔄 スクレイピング開始: source=${source}, prefecture=${prefecture}, limit=${limit}`);
+    console.log(`🔄 受信パラメータ: source=${source}, prefecture=${prefecture}, limit=${limit}`);
     
-    const allBusinesses: any[] = [];
-    
-    if (source === 'tabelog' || source === 'all') {
-      console.log('🍽️ 食べログスクレイピング実行中...');
-      try {
-        const tabelogData = await scrapeTabelogData(prefecture);
-        console.log(`🍽️ 食べログ結果: ${tabelogData.length}件`);
-        allBusinesses.push(...tabelogData);
-      } catch (error) {
-        console.error('❌ 食べログスクレイピングエラー:', error);
+    // まずは確実にデータを返すテスト
+    const testBusinesses = [
+      {
+        name: 'デバッグテスト店舗1',
+        website_url: 'https://example1.com',
+        has_website: true,
+        location: prefecture,
+        industry: 'テスト業',
+        phone: '03-1234-5678',
+        address: prefecture,
+        data_source: 'デバッグ',
+        is_new: true
+      },
+      {
+        name: 'デバッグテスト店舗2',
+        website_url: 'https://example2.com',
+        has_website: true,
+        location: prefecture,
+        industry: 'テスト業',
+        phone: '03-9876-5432',
+        address: prefecture,
+        data_source: 'デバッグ',
+        is_new: true
+      },
+      {
+        name: 'デバッグテスト店舗3',
+        website_url: 'https://example3.com',
+        has_website: true,
+        location: prefecture,
+        industry: 'テスト業',
+        phone: '03-5555-1111',
+        address: prefecture,
+        data_source: 'デバッグ',
+        is_new: true
       }
-    }
-    
-    if (source === 'ekiten' || source === 'all') {
-      console.log('🏪 えきてんスクレイピング実行中...');
-      try {
-        const ekitenData = await scrapeEkitenData(prefecture);
-        console.log(`🏪 えきてん結果: ${ekitenData.length}件`);
-        allBusinesses.push(...ekitenData);
-      } catch (error) {
-        console.error('❌ えきてんスクレイピングエラー:', error);
-      }
-    }
-    
-    if (source === 'maipre' || source === 'all') {
-      console.log('🏢 まいぷれスクレイピング実行中...');
-      try {
-        const maipreData = await scrapeMaipreData(prefecture);
-        console.log(`🏢 まいぷれ結果: ${maipreData.length}件`);
-        allBusinesses.push(...maipreData);
-      } catch (error) {
-        console.error('❌ まいぷれスクレイピングエラー:', error);
-      }
-    }
+    ];
 
-    const limitedBusinesses = allBusinesses.slice(0, limit);
-    console.log(`✅ 合計取得: ${allBusinesses.length}件 → 制限後: ${limitedBusinesses.length}件`);
+    console.log(`✅ テストデータ準備完了: ${testBusinesses.length}件`);
     
     return new Response(JSON.stringify({
       success: true,
-      businesses: limitedBusinesses,
+      businesses: testBusinesses,
       debug: {
-        totalFound: allBusinesses.length,
-        afterLimit: limitedBusinesses.length,
-        source: source,
-        prefecture: prefecture
+        message: 'Edge Function正常動作確認',
+        receivedParams: { source, prefecture, limit },
+        timestamp: new Date().toISOString()
       },
-      message: `${limitedBusinesses.length}件の企業データを取得しました（実データ）`
+      message: `${testBusinesses.length}件のテストデータを返却`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

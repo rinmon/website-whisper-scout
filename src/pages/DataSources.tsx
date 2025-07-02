@@ -34,6 +34,7 @@ const DataSources = () => {
     saveBusinessesToMaster,
     addMultipleBusinessesToUser,
     clearAllUserData,
+    deleteMockData,
     isSavingBusinesses,
     isDeleting,
   } = useBusinessData();
@@ -139,6 +140,26 @@ const DataSources = () => {
     } catch (error) {
       console.error('ユーザーデータ削除エラー:', error);
       setCurrentStatus('ユーザーデータの削除に失敗しました。');
+    } finally {
+        setTimeout(() => {
+            if (!isOperationRunning) {
+                setCurrentStatus('');
+            }
+        }, 5000);
+    }
+  };
+
+  // モックデータを削除
+  const handleDeleteMockData = async () => {
+    if (isOperationRunning) return;
+    setCurrentStatus('モックデータを削除しています...');
+    try {
+      await deleteMockData();
+      setCurrentStatus('モックデータが正常に削除されました。');
+      setFetchResults(null);
+    } catch (error) {
+      console.error('モックデータ削除エラー:', error);
+      setCurrentStatus('モックデータの削除に失敗しました。');
     } finally {
         setTimeout(() => {
             if (!isOperationRunning) {
@@ -272,6 +293,20 @@ const DataSources = () => {
             )}
 
             <div className="flex gap-2 flex-wrap">
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleDeleteMockData}
+                disabled={isOperationRunning}
+              >
+                {isDeleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                モックデータを削除
+              </Button>
+              
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button 

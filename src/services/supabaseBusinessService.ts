@@ -231,6 +231,24 @@ export class SupabaseBusinessService {
     return { error: null };
   }
 
+  // モックデータ（デバッグデータ）を削除
+  static async deleteMockData(): Promise<{ error: PostgrestError | null }> {
+    console.log(`[Supabase] Deleting mock data from businesses table`);
+
+    const { error } = await supabase
+      .from('businesses')
+      .delete()
+      .or('data_source.eq.デバッグ,name.like.%デバッグテスト%');
+
+    if (error) {
+      console.error('[Supabase] Error deleting mock data:', error);
+      return { error };
+    }
+
+    console.log('[Supabase] Successfully deleted mock data.');
+    return { error: null };
+  }
+
   // 特定ユーザーの統計データを取得
   static async getUserBusinessStats(userId: string): Promise<{
     totalCount: number;

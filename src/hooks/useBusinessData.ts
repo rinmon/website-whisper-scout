@@ -148,6 +148,23 @@ export const useBusinessData = () => {
     },
   });
 
+  // モックデータ削除用のMutation
+  const deleteMockDataMutation = useMutation({
+    mutationFn: () => {
+      return SupabaseBusinessService.deleteMockData();
+    },
+    onSuccess: (result) => {
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      console.log('[useBusinessData] Mock data deleted successfully.');
+      invalidateQueries();
+    },
+    onError: (error) => {
+      console.error('[useBusinessData] Failed to delete mock data:', error);
+    },
+  });
+
   // コンポーネントがマウントされたときに認証状態とデータをログ出力
   useEffect(() => {
     console.log('🔍 [useBusinessData] Current auth state:', { 
@@ -182,8 +199,9 @@ export const useBusinessData = () => {
     isUpdatingUserBusiness: updateUserBusinessMutation.isPending,
     updateUserBusiness: updateUserBusinessMutation.mutateAsync,
     
-    isDeleting: deleteAllUserDataMutation.isPending,
+    isDeleting: deleteAllUserDataMutation.isPending || deleteMockDataMutation.isPending,
     clearAllUserData: deleteAllUserDataMutation.mutateAsync,
+    deleteMockData: deleteMockDataMutation.mutateAsync,
     
     // Manual refetch
     refreshData: invalidateQueries,

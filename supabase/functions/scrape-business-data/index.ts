@@ -333,57 +333,20 @@ async function scrapeMaipreData(prefecture: string) {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
     ];
     
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-    
-    // より具体的な都道府県検索
-    const prefectureCode = encodeURIComponent(prefecture);
-    const url = `https://www.maipre.jp/search/?pref=${prefectureCode}`;
-    console.log(`🔍 まいぷれURL: ${url}`);
-    
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        response = await fetch(url, {
-          headers: {
-            'User-Agent': randomUserAgent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Referer': 'https://www.maipre.jp/'
-          }
-        });
-        
-        if (response.ok) break;
-        
-        if (response.status === 429 || response.status === 503) {
-          const waitTime = Math.pow(2, retryCount) * 20000;
-          console.log(`⏳ まいぷれレート制限。${waitTime}ms待機中...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-        
-        retryCount++;
-      } catch (error) {
-        retryCount++;
-        if (retryCount >= maxRetries) throw error;
-        await new Promise(resolve => setTimeout(resolve, 10000));
-      }
-    }
+    const config = {
+      maxRetries: 2, // 試行回数を減らす
+      retryDelay: 12000, // 12秒間隔
+      requestDelay: 15000, // 15秒間隔（最も長い間隔）
+      userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+      timeout: 40000
+    };
 
-    if (!response || !response.ok) {
-      console.warn(`⚠️ まいぷれ応答エラー: ${response?.status}`);
+    const html = await SafeScrapingService.fetchPageSafely(searchUrl, config);
+    
+    if (!html || html.length < 1000) {
+      console.warn('⚠️ まいぷれ: 取得したHTMLが短すぎます');
       return [];
     }
-
-    const html = await response.text();
-    console.log(`📄 まいぷれHTML取得: ${html.length}文字`);
     
     // 多様なパターンマッチング
     const businesses = [];

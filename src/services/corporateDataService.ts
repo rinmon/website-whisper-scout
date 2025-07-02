@@ -83,9 +83,38 @@ export class CorporateDataService {
     dataSourceGroup: string, 
     onProgress?: ProgressCallback
   ): Promise<BusinessPayload[]> {
-    // スクレイピング以外のデータソース用（現在は簡易実装）
-    onProgress?.(`${this.getGroupLabel(dataSourceGroup)}のデータ取得中...`, 1, 1);
-    return [];
+    try {
+      onProgress?.(`${this.getGroupLabel(dataSourceGroup)}のデータ取得中...`, 0, 1);
+      
+      // Edge Functionを呼び出し
+      const response = await supabase.functions.invoke('scrape-business-data', {
+        body: {
+          source: dataSourceGroup,
+          prefecture: '東京都',
+          limit: 25
+        }
+      });
+
+      if (response.error) {
+        throw new Error(`Edge Function error: ${response.error.message}`);
+      }
+
+      const { businesses } = response.data;
+      
+      if (!businesses || !Array.isArray(businesses)) {
+        throw new Error('Invalid response format from scraping service');
+      }
+
+      onProgress?.(`✅ ${businesses.length}社のデータ取得完了`, 1, 1);
+      
+      console.log(`✅ Edge Function完了: ${businesses.length}社`);
+      return businesses;
+
+    } catch (error) {
+      console.error('❌ データ取得エラー:', error);
+      onProgress?.(`❌ エラー: ${error instanceof Error ? error.message : 'データ取得に失敗'}`, 1, 1);
+      throw error;
+    }
   }
 
   private static getGroupLabel(group: string): string {

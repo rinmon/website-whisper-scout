@@ -46,75 +46,35 @@ export class CorporateDataService {
 
   private static async fetchFromScrapingSources(onProgress?: ProgressCallback): Promise<BusinessPayload[]> {
     try {
-      onProgress?.('実際のWebサイトからスクレイピング開始...', 0, 4);
+      onProgress?.('サーバーサイドでスクレイピング開始...', 0, 3);
       
-      const allBusinesses: BusinessPayload[] = [];
-      
-      // 食べログからスクレイピング
-      onProgress?.('食べログからデータ取得中...', 1, 4);
-      const { TabelogScraper } = await import('./scraping/tabelogScraper');
-      const tabelogData = await TabelogScraper.scrapeBusinesses('東京都', 10);
-      
-      tabelogData.forEach(business => {
-        allBusinesses.push({
-          name: business.name,
-          website_url: business.url || '',
-          has_website: !!business.url,
-          location: business.area || '東京都',
-          industry: business.genre || '飲食業',
-          phone: '',
-          address: business.area || '',
-          data_source: '食べログ',
-          is_new: true
-        });
+      // Edge Functionを呼び出してスクレイピング実行
+      const response = await supabase.functions.invoke('scrape-business-data', {
+        body: {
+          source: 'all',
+          prefecture: '東京都',
+          limit: 25
+        }
       });
 
-      // えきてんからスクレイピング
-      onProgress?.('えきてんからデータ取得中...', 2, 4);
-      const { EkitenScraper } = await import('./scraping/ekitenScraper');
-      const ekitenData = await EkitenScraper.scrapeBusinesses('東京都', 8);
-      
-      ekitenData.forEach(business => {
-        allBusinesses.push({
-          name: business.name,
-          website_url: business.url || '',
-          has_website: !!business.url,
-          location: business.area || '東京都',
-          industry: business.category || 'サービス業',
-          phone: '',
-          address: business.address || business.area || '',
-          data_source: 'えきてん',
-          is_new: true
-        });
-      });
+      if (response.error) {
+        throw new Error(`Edge Function error: ${response.error.message}`);
+      }
 
-      // まいぷれからスクレイピング
-      onProgress?.('まいぷれからデータ取得中...', 3, 4);
-      const { MaipreScraper } = await import('./scraping/maipreScraper');
-      const maipreData = await MaipreScraper.scrapeBusinesses('東京都', 5);
+      const { businesses } = response.data;
       
-      maipreData.forEach(business => {
-        allBusinesses.push({
-          name: business.name,
-          website_url: business.url || '',
-          has_website: !!business.url,
-          location: business.area || '東京都',
-          industry: business.category || '地域サービス',
-          phone: '',
-          address: business.area || '',
-          data_source: 'まいぷれ',
-          is_new: true
-        });
-      });
+      if (!businesses || !Array.isArray(businesses)) {
+        throw new Error('Invalid response format from scraping service');
+      }
 
-      onProgress?.(`✅ ${allBusinesses.length}社の実データ取得完了`, 4, 4);
+      onProgress?.(`✅ ${businesses.length}社の実データ取得完了`, 3, 3);
       
-      console.log(`✅ スクレイピング完了: ${allBusinesses.length}社（実データ）`);
-      return allBusinesses;
+      console.log(`✅ Edge Functionスクレイピング完了: ${businesses.length}社（実データ）`);
+      return businesses;
 
     } catch (error) {
       console.error('❌ スクレイピングエラー:', error);
-      onProgress?.(`❌ エラー: ${error instanceof Error ? error.message : 'スクレイピングに失敗'}`, 4, 4);
+      onProgress?.(`❌ エラー: ${error instanceof Error ? error.message : 'スクレイピングに失敗'}`, 3, 3);
       throw error;
     }
   }

@@ -17,56 +17,38 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Edge Function 開始');
-    const { dataSourceGroup } = await req.json();
+    console.log('🔄 Edge Function 開始 - 実データスクレイピング');
+    const { source, prefecture = '東京都', limit = 25 } = await req.json();
     
-    console.log(`🔄 データ取得開始: ${dataSourceGroup}`);
+    console.log(`🔄 スクレイピング開始: ${source} (${prefecture})`);
     
-    // シンプルなモックデータを即座に返す（開発用）
-    const mockBusinesses = [
-      {
-        name: 'サンプル企業1',
-        website_url: 'https://example1.com',
-        has_website: true,
-        location: '東京都',
-        industry: 'IT・サービス',
-        phone: '03-1234-5678',
-        address: '東京都港区',
-        data_source: dataSourceGroup || 'モック',
-        is_new: true
-      },
-      {
-        name: 'サンプル企業2', 
-        website_url: 'https://example2.com',
-        has_website: true,
-        location: '東京都',
-        industry: '製造業',
-        phone: '03-9876-5432',
-        address: '東京都渋谷区',
-        data_source: dataSourceGroup || 'モック',
-        is_new: true
-      },
-      {
-        name: 'サンプル企業3',
-        website_url: '',
-        has_website: false,
-        location: '東京都',
-        industry: '小売業',
-        phone: '03-5555-1234',
-        address: '東京都新宿区',
-        data_source: dataSourceGroup || 'モック',
-        is_new: true
-      }
-    ];
+    const allBusinesses: any[] = [];
+    
+    if (source === 'tabelog' || source === 'all') {
+      console.log('🍽️ 食べログスクレイピング実行中...');
+      const tabelogData = await scrapeTabelogData(prefecture);
+      allBusinesses.push(...tabelogData);
+    }
+    
+    if (source === 'ekiten' || source === 'all') {
+      console.log('🏪 えきてんスクレイピング実行中...');
+      const ekitenData = await scrapeEkitenData(prefecture);
+      allBusinesses.push(...ekitenData);
+    }
+    
+    if (source === 'maipre' || source === 'all') {
+      console.log('🏢 まいぷれスクレイピング実行中...');
+      const maipreData = await scrapeMaipreData(prefecture);
+      allBusinesses.push(...maipreData);
+    }
 
-    // 即座に成功レスポンスを返す
-    console.log(`✅ ${mockBusinesses.length}件のモックデータを返却`);
+    const limitedBusinesses = allBusinesses.slice(0, limit);
+    console.log(`✅ ${limitedBusinesses.length}件の実データを取得完了`);
     
     return new Response(JSON.stringify({
       success: true,
-      totalSaved: mockBusinesses.length,
-      businesses: mockBusinesses,
-      message: `${mockBusinesses.length}件の企業データを取得しました（開発用モック）`
+      businesses: limitedBusinesses,
+      message: `${limitedBusinesses.length}件の企業データを取得しました（実データ）`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

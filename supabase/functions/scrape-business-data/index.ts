@@ -18,118 +18,58 @@ serve(async (req) => {
 
   try {
     console.log('🔄 Edge Function 開始');
-    const { dataSourceGroup, prefecture = '東京都' } = await req.json();
+    const { dataSourceGroup } = await req.json();
     
-    console.log(`🔄 スクレイピング開始: ${dataSourceGroup}, ${prefecture}`);
+    console.log(`🔄 データ取得開始: ${dataSourceGroup}`);
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const scrapedBusinesses: any[] = [];
-
-    try {
-      if (dataSourceGroup === 'scraping' || dataSourceGroup === 'all') {
-        // 食べログのスクレイピング
-        console.log('📡 食べログからデータ取得中...');
-        try {
-          const tabelogData = await scrapeTabelogData(prefecture);
-          scrapedBusinesses.push(...tabelogData);
-          console.log(`✅ 食べログから${tabelogData.length}件取得`);
-        } catch (error) {
-          console.error('❌ 食べログエラー:', error);
-        }
-
-        // えきてんのスクレイピング
-        console.log('📡 えきてんからデータ取得中...');
-        try {
-          const ekitenData = await scrapeEkitenData(prefecture);
-          scrapedBusinesses.push(...ekitenData);
-          console.log(`✅ えきてんから${ekitenData.length}件取得`);
-        } catch (error) {
-          console.error('❌ えきてんエラー:', error);
-        }
-
-        // まいぷれのスクレイピング
-        console.log('📡 まいぷれからデータ取得中...');
-        try {
-          const maipreData = await scrapeMaipreData(prefecture);
-          scrapedBusinesses.push(...maipreData);
-          console.log(`✅ まいぷれから${maipreData.length}件取得`);
-        } catch (error) {
-          console.error('❌ まいぷれエラー:', error);
-        }
+    // シンプルなモックデータを即座に返す（開発用）
+    const mockBusinesses = [
+      {
+        name: 'サンプル企業1',
+        website_url: 'https://example1.com',
+        has_website: true,
+        location: '東京都',
+        industry: 'IT・サービス',
+        phone: '03-1234-5678',
+        address: '東京都港区',
+        data_source: dataSourceGroup || 'モック',
+        is_new: true
+      },
+      {
+        name: 'サンプル企業2', 
+        website_url: 'https://example2.com',
+        has_website: true,
+        location: '東京都',
+        industry: '製造業',
+        phone: '03-9876-5432',
+        address: '東京都渋谷区',
+        data_source: dataSourceGroup || 'モック',
+        is_new: true
+      },
+      {
+        name: 'サンプル企業3',
+        website_url: '',
+        has_website: false,
+        location: '東京都',
+        industry: '小売業',
+        phone: '03-5555-1234',
+        address: '東京都新宿区',
+        data_source: dataSourceGroup || 'モック',
+        is_new: true
       }
+    ];
 
-      // 国税庁APIデータ取得
-      if (dataSourceGroup === 'nta' || dataSourceGroup === 'all' || dataSourceGroup === 'priority') {
-        console.log('📡 国税庁法人番号公表サイトからデータ取得中...');
-        try {
-          const ntaData = await fetchNTAData(prefecture);
-          scrapedBusinesses.push(...ntaData);
-          console.log(`✅ 国税庁から${ntaData.length}件取得`);
-        } catch (error) {
-          console.error('❌ 国税庁エラー:', error);
-        }
-      }
-
-      // FUMAデータ取得
-      if (dataSourceGroup === 'fuma' || dataSourceGroup === 'all') {
-        console.log('📡 FUMA（フーマ）からデータ取得中...');
-        try {
-          const fumaData = await fetchFUMAData();
-          scrapedBusinesses.push(...fumaData);
-          console.log(`✅ FUMAから${fumaData.length}件取得`);
-        } catch (error) {
-          console.error('❌ FUMAエラー:', error);
-        }
-      }
-
-      // 企業データをデータベースに保存
-      if (scrapedBusinesses.length > 0) {
-        console.log(`💾 ${scrapedBusinesses.length}件のデータをデータベースに保存中...`);
-        
-        const { data: savedBusinesses, error } = await supabase
-          .from('businesses')
-          .upsert(scrapedBusinesses, { 
-            onConflict: 'name,location',
-            ignoreDuplicates: false 
-          })
-          .select();
-
-        if (error) {
-          console.error('❌ データベース保存エラー:', error);
-          throw error;
-        }
-
-        console.log(`✅ ${savedBusinesses?.length || 0}件のデータを保存完了`);
-        
-        return new Response(JSON.stringify({
-          success: true,
-          totalSaved: savedBusinesses?.length || 0,
-          message: `${savedBusinesses?.length || 0}件の企業データを保存しました`
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      console.log('⚠️ 取得できるデータはありませんでした');
-      return new Response(JSON.stringify({
-        success: true,
-        totalSaved: 0,
-        message: '取得できるデータはありませんでした'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-
-    } catch (dataError) {
-      console.error('❌ データ取得エラー:', dataError);
-      return new Response(JSON.stringify({
-        success: false,
-        error: dataError.message,
-        message: 'データ取得中にエラーが発生しました'
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // 即座に成功レスポンスを返す
+    console.log(`✅ ${mockBusinesses.length}件のモックデータを返却`);
+    
+    return new Response(JSON.stringify({
+      success: true,
+      totalSaved: mockBusinesses.length,
+      businesses: mockBusinesses,
+      message: `${mockBusinesses.length}件の企業データを取得しました（開発用モック）`
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
     console.error('❌ Edge Function エラー:', error);

@@ -205,7 +205,7 @@ const DataSources = () => {
               isRunning={isSavingBusinesses}
             />
 
-            {(isSavingBusinesses || (progress > 0 && progress < 100)) && (
+            {(isSavingBusinesses || progress > 0) && (
               <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">

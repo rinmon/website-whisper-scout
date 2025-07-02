@@ -10,10 +10,7 @@ export class SupabaseBusinessService {
     
     const { data, error } = await supabase
       .from('businesses')
-      .upsert(businesses as any, {
-        onConflict: 'name, location',
-        ignoreDuplicates: false
-      })
+      .insert(businesses as any)
       .select<'*', Business>('*');
 
     if (error) {

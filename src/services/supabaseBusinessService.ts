@@ -6,17 +6,13 @@ import { Business, BusinessAnalysis, BusinessPayload, UserBusiness, UserBusiness
 export class SupabaseBusinessService {
   // 共有企業マスターデータを一括保存（重複排除と更新/新規追加）
   static async saveBusinesses(businesses: BusinessPayload[]): Promise<Business[]> {
-    // 企業名と所在地の組み合わせで重複チェック用のキーを生成
-    const businessesWithKeys = businesses.map(business => ({
-      ...business,
-      // 正規化したキーで重複チェック
-      duplicate_key: `${business.name?.trim()}-${business.location?.trim()}`
-    }));
-
+    console.log(`[SupabaseBusinessService] Saving ${businesses.length} businesses to database`);
+    
     const { data, error } = await supabase
       .from('businesses')
-      .upsert(businessesWithKeys as any, {
+      .upsert(businesses as any, {
         onConflict: 'name, location',
+        ignoreDuplicates: false
       })
       .select<'*', Business>('*');
 
@@ -25,6 +21,7 @@ export class SupabaseBusinessService {
       return [];
     }
 
+    console.log(`[SupabaseBusinessService] Successfully saved ${(data || []).length} businesses`);
     return (data as Business[]) || [];
   }
 

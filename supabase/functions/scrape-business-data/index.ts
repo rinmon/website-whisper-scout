@@ -17,59 +17,52 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Edge Function 開始 - デバッグモード');
+    console.log('🔄 Edge Function 開始 - リアルスクレイピング');
     const { source, prefecture = '東京都', limit = 25 } = await req.json();
     
     console.log(`🔄 受信パラメータ: source=${source}, prefecture=${prefecture}, limit=${limit}`);
     
-    // まずは確実にデータを返すテスト
-    const testBusinesses = [
-      {
-        name: 'デバッグテスト店舗1',
-        website_url: 'https://example1.com',
-        has_website: true,
-        location: prefecture,
-        industry: 'テスト業',
-        phone: '03-1234-5678',
-        address: prefecture,
-        data_source: 'デバッグ',
-        is_new: true
-      },
-      {
-        name: 'デバッグテスト店舗2',
-        website_url: 'https://example2.com',
-        has_website: true,
-        location: prefecture,
-        industry: 'テスト業',
-        phone: '03-9876-5432',
-        address: prefecture,
-        data_source: 'デバッグ',
-        is_new: true
-      },
-      {
-        name: 'デバッグテスト店舗3',
-        website_url: 'https://example3.com',
-        has_website: true,
-        location: prefecture,
-        industry: 'テスト業',
-        phone: '03-5555-1111',
-        address: prefecture,
-        data_source: 'デバッグ',
-        is_new: true
-      }
-    ];
-
-    console.log(`✅ テストデータ準備完了: ${testBusinesses.length}件`);
+    const allBusinesses = [];
+    
+    // データソースに応じてスクレイピング実行
+    switch (source) {
+      case 'scraping':
+      case 'all':
+        // 食べログからスクレイピング
+        const tabelogData = await scrapeTabelogData(prefecture);
+        allBusinesses.push(...tabelogData);
+        
+        // えきてんからスクレイピング
+        const ekitenData = await scrapeEkitenData(prefecture);
+        allBusinesses.push(...ekitenData);
+        
+        // まいぷれからスクレイピング
+        const maipreData = await scrapeMaipreData(prefecture);
+        allBusinesses.push(...maipreData);
+        break;
+        
+      default:
+        console.log(`ℹ️ 未対応のソース: ${source}`);
+        break;
+    }
+    
+    // 重複除去
+    const uniqueBusinesses = allBusinesses.filter((business, index, self) => 
+      index === self.findIndex(b => b.name === business.name && b.location === business.location)
+    );
+    
+    console.log(`✅ スクレイピング完了: ${uniqueBusinesses.length}件`);
     
     return new Response(JSON.stringify({
       success: true,
-      businesses: testBusinesses,
+      businesses: uniqueBusinesses.slice(0, limit),
       debug: {
-        message: 'Edge Function正常動作確認',
+        message: 'リアルスクレイピング実行完了',
         receivedParams: { source, prefecture, limit },
+        scrapedCount: uniqueBusinesses.length,
         timestamp: new Date().toISOString()
       },
-      message: `${testBusinesses.length}件のテストデータを返却`
+      message: `${uniqueBusinesses.length}件のリアルデータを取得`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

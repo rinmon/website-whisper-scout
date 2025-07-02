@@ -20,34 +20,55 @@ serve(async (req) => {
     console.log('🔄 Edge Function 開始 - 実データスクレイピング');
     const { source, prefecture = '東京都', limit = 25 } = await req.json();
     
-    console.log(`🔄 スクレイピング開始: ${source} (${prefecture})`);
+    console.log(`🔄 スクレイピング開始: source=${source}, prefecture=${prefecture}, limit=${limit}`);
     
     const allBusinesses: any[] = [];
     
     if (source === 'tabelog' || source === 'all') {
       console.log('🍽️ 食べログスクレイピング実行中...');
-      const tabelogData = await scrapeTabelogData(prefecture);
-      allBusinesses.push(...tabelogData);
+      try {
+        const tabelogData = await scrapeTabelogData(prefecture);
+        console.log(`🍽️ 食べログ結果: ${tabelogData.length}件`);
+        allBusinesses.push(...tabelogData);
+      } catch (error) {
+        console.error('❌ 食べログスクレイピングエラー:', error);
+      }
     }
     
     if (source === 'ekiten' || source === 'all') {
       console.log('🏪 えきてんスクレイピング実行中...');
-      const ekitenData = await scrapeEkitenData(prefecture);
-      allBusinesses.push(...ekitenData);
+      try {
+        const ekitenData = await scrapeEkitenData(prefecture);
+        console.log(`🏪 えきてん結果: ${ekitenData.length}件`);
+        allBusinesses.push(...ekitenData);
+      } catch (error) {
+        console.error('❌ えきてんスクレイピングエラー:', error);
+      }
     }
     
     if (source === 'maipre' || source === 'all') {
       console.log('🏢 まいぷれスクレイピング実行中...');
-      const maipreData = await scrapeMaipreData(prefecture);
-      allBusinesses.push(...maipreData);
+      try {
+        const maipreData = await scrapeMaipreData(prefecture);
+        console.log(`🏢 まいぷれ結果: ${maipreData.length}件`);
+        allBusinesses.push(...maipreData);
+      } catch (error) {
+        console.error('❌ まいぷれスクレイピングエラー:', error);
+      }
     }
 
     const limitedBusinesses = allBusinesses.slice(0, limit);
-    console.log(`✅ ${limitedBusinesses.length}件の実データを取得完了`);
+    console.log(`✅ 合計取得: ${allBusinesses.length}件 → 制限後: ${limitedBusinesses.length}件`);
     
     return new Response(JSON.stringify({
       success: true,
       businesses: limitedBusinesses,
+      debug: {
+        totalFound: allBusinesses.length,
+        afterLimit: limitedBusinesses.length,
+        source: source,
+        prefecture: prefecture
+      },
       message: `${limitedBusinesses.length}件の企業データを取得しました（実データ）`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -170,6 +191,8 @@ class SafeScrapingService {
 
 async function scrapeTabelogData(prefecture: string) {
   try {
+    console.log(`🍽️ 食べログ開始: prefecture=${prefecture}`);
+    
     const prefectureMap: Record<string, string> = {
       '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
       '神奈川県': 'kanagawa', '福岡県': 'fukuoka', '北海道': 'hokkaido',
@@ -179,44 +202,48 @@ async function scrapeTabelogData(prefecture: string) {
     const prefCode = prefectureMap[prefecture] || 'tokyo';
     const url = `https://tabelog.com/${prefCode}/`;
     
-    console.log(`🍽️ 食べログスクレイピング開始: ${url}`);
+    console.log(`🍽️ URL: ${url}`);
     
     const userAgents = [
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     ];
     
     const config = {
-      maxRetries: 3,
-      retryDelay: 3000,
-      requestDelay: 5000,
+      maxRetries: 2,
+      retryDelay: 2000,
+      requestDelay: 3000,
       userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
-      timeout: 25000
+      timeout: 20000
     };
 
+    console.log(`🍽️ 設定: ${JSON.stringify(config)}`);
+    
     const html = await SafeScrapingService.fetchPageSafely(url, config);
+    console.log(`🍽️ HTML取得完了: ${html.length}文字`);
     
     if (!html || html.length < 1000) {
-      console.warn('⚠️ 食べログ: 取得したHTMLが短すぎます');
+      console.warn('⚠️ 食べログ: HTMLが短すぎます');
       return [];
     }
 
     const businesses = [];
     
-    // より具体的な食べログの店舗リストパターン
-    const namePatterns = [
-      // リスト内の店舗名リンク
-      /<a[^>]*class="[^"]*list-rst__rst-name-target[^"]*"[^>]*href="([^"]+)"[^>]*title="([^"]+)"/g,
-      // 検索結果の店舗名
-      /<h3[^>]*class="[^"]*list-rst__rst-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
-      // ランキングリストの店舗名
-      /<div[^>]*class="[^"]*rstlist-info[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
+    // 簡単なパターンから試行
+    const simplePatterns = [
+      // 基本的な店舗名パターン
+      /<a[^>]*href="(\/[^"]*\/A\d+\/A\d+\/\d+\/)"[^>]*>([^<]+)<\/a>/g,
+      // リスト内の店舗名
+      /<h3[^>]*class="[^"]*rst-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
     ];
     
-    for (const pattern of namePatterns) {
+    for (const pattern of simplePatterns) {
+      console.log(`🍽️ パターン試行: ${pattern.source.substring(0, 50)}...`);
       let match;
-      while ((match = pattern.exec(html)) !== null && businesses.length < 15) {
+      let matchCount = 0;
+      
+      while ((match = pattern.exec(html)) !== null && businesses.length < 10) {
+        matchCount++;
         const [, url, name] = match;
         const cleanName = name.trim()
           .replace(/\s+/g, ' ')
@@ -225,36 +252,35 @@ async function scrapeTabelogData(prefecture: string) {
           .replace(/&gt;/g, '>')
           .replace(/&quot;/g, '"');
         
+        console.log(`🍽️ マッチ${matchCount}: name="${cleanName}", url="${url}"`);
+        
         if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
-          // ジャンル抽出の試行
-          let genre = '飲食店';
-          const genrePattern = new RegExp(`${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]{0,500}?class="[^"]*list-rst__category[^"]*"[^>]*>([^<]+)`, 'i');
-          const genreMatch = html.match(genrePattern);
-          if (genreMatch) {
-            genre = genreMatch[1].trim();
-          }
-          
           businesses.push({
             name: cleanName,
             website_url: url?.startsWith('http') ? url : `https://tabelog.com${url}`,
             has_website: true,
             location: prefecture,
-            industry: genre,
+            industry: '飲食店',
             phone: '',
             address: prefecture,
             data_source: '食べログ',
             is_new: true
           });
+          console.log(`🍽️ 追加: ${cleanName}`);
         }
       }
-      if (businesses.length >= 15) break;
+      
+      console.log(`🍽️ パターン結果: ${matchCount}マッチ, ${businesses.length}件追加`);
+      if (businesses.length >= 10) break;
     }
     
-    console.log(`✅ 食べログから${businesses.length}件取得`);
+    console.log(`✅ 食べログ最終結果: ${businesses.length}件`);
     return businesses;
     
   } catch (error) {
-    console.error('❌ 食べログスクレイピングエラー:', error);
+    console.error('❌ 食べログエラー:', error);
+    console.error('❌ エラー詳細:', error.message);
+    console.error('❌ スタック:', error.stack);
     return [];
   }
 }

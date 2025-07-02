@@ -32,6 +32,7 @@ const DataSources = () => {
   const {
     stats,
     saveBusinessesToMaster,
+    addMultipleBusinessesToUser,
     clearAllUserData,
     isSavingBusinesses,
     isDeleting,
@@ -92,9 +93,17 @@ const DataSources = () => {
       if (corporateData.length > 0) {
         setCurrentStatus(`取得した${corporateData.length}件のデータを企業マスターに保存中...`);
         const savedBusinesses = await saveBusinessesToMaster(corporateData);
+        
+        // ユーザーとの関連付けも自動実行
+        if (savedBusinesses.length > 0) {
+          setCurrentStatus(`${savedBusinesses.length}件のデータをあなたの企業リストに追加中...`);
+          const businessIds = savedBusinesses.map(business => business.id);
+          await addMultipleBusinessesToUser(businessIds);
+        }
+        
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         setFetchResults({ total: savedBusinesses.length, time: duration });
-        setCurrentStatus(`✅ 企業マスターデータ保存完了: ${savedBusinesses.length}社 (処理時間: ${duration}秒)`);
+        setCurrentStatus(`✅ 企業データ取得・保存完了: ${savedBusinesses.length}社 (処理時間: ${duration}秒)`);
       } else {
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         setFetchResults({ total: 0, time: duration });

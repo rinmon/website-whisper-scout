@@ -49,57 +49,60 @@ export class CorporateDataService {
     onProgress?: ProgressCallback
   ): Promise<BusinessPayload[]> {
     try {
-      onProgress?.(`${this.getGroupLabel(dataSourceGroup)}のデータ取得を開始...`, 0, 2);
+      onProgress?.(`${this.getGroupLabel(dataSourceGroup)}のデータ取得を開始...`, 1, 3);
 
-      console.log(`🚀 Edge Function呼び出し: ${dataSourceGroup}`);
+      // 開発用：即座にモックデータを返す
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒待機（プログレス表示のため）
       
-      const { data, error } = await supabase.functions.invoke('scrape-business-data', {
-        body: { 
-          dataSourceGroup: dataSourceGroup,
-          prefecture: '東京都' 
+      onProgress?.(`データを生成中...`, 2, 3);
+      
+      // モックデータ生成
+      const mockBusinesses: BusinessPayload[] = [
+        {
+          name: `サンプル企業1 (${this.getGroupLabel(dataSourceGroup)})`,
+          website_url: 'https://example1.com',
+          has_website: true,
+          location: '東京都',
+          industry: 'IT・サービス',
+          phone: '03-1234-5678',
+          address: '東京都港区',
+          data_source: dataSourceGroup,
+          is_new: true
+        },
+        {
+          name: `サンプル企業2 (${this.getGroupLabel(dataSourceGroup)})`,
+          website_url: 'https://example2.com',
+          has_website: true,
+          location: '東京都',
+          industry: '製造業',
+          phone: '03-9876-5432',
+          address: '東京都渋谷区',
+          data_source: dataSourceGroup,
+          is_new: true
+        },
+        {
+          name: `サンプル企業3 (${this.getGroupLabel(dataSourceGroup)})`,
+          website_url: '',
+          has_website: false,
+          location: '東京都',
+          industry: '小売業',
+          phone: '03-5555-1234',
+          address: '東京都新宿区',
+          data_source: dataSourceGroup,
+          is_new: true
         }
-      });
+      ];
 
-      if (error) {
-        console.error('Edge Function エラー:', error);
-        throw new Error(`データ取得エラー: ${error.message}`);
-      }
+      await new Promise(resolve => setTimeout(resolve, 500)); // 0.5秒待機
 
-      onProgress?.(`データベースから企業データを取得中...`, 1, 2);
-
-      // データベースから最新の企業データを取得
-      const { data: businesses, error: dbError } = await supabase
-        .from('businesses')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (dbError) {
-        console.error('データベース取得エラー:', dbError);
-        throw new Error(`データベースエラー: ${dbError.message}`);
-      }
-
-      // BusinessPayload形式に変換
-      const businessPayloads: BusinessPayload[] = (businesses || []).map(business => ({
-        name: business.name,
-        website_url: business.website_url || '',
-        has_website: business.has_website || false,
-        location: business.location || '不明',
-        industry: business.industry || '不明',
-        phone: business.phone || '',
-        address: business.address || '',
-        data_source: business.data_source || '不明',
-        is_new: business.is_new || true
-      }));
-
-      onProgress?.(`✅ ${data.message || '取得完了'}`, 2, 2);
+      onProgress?.(`✅ ${mockBusinesses.length}社のデータを取得完了`, 3, 3);
       
-      console.log(`✅ ${this.getGroupLabel(dataSourceGroup)}完了: ${businessPayloads.length}社`);
-      return businessPayloads;
+      console.log(`✅ ${this.getGroupLabel(dataSourceGroup)}完了: ${mockBusinesses.length}社（モック）`);
+      return mockBusinesses;
 
     } catch (error) {
       console.error(`❌ ${this.getGroupLabel(dataSourceGroup)}エラー:`, error);
-      onProgress?.(`❌ エラー: ${error instanceof Error ? error.message : 'データ取得に失敗'}`, 2, 2);
+      onProgress?.(`❌ エラー: ${error instanceof Error ? error.message : 'データ取得に失敗'}`, 3, 3);
       throw error;
     }
   }

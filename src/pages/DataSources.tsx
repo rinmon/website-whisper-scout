@@ -51,6 +51,13 @@ const DataSources = () => {
     setFetchResults(null);
     const startTime = Date.now();
 
+    // タイムアウト設定（5分）
+    const timeoutId = setTimeout(() => {
+      setCurrentStatus('❌ タイムアウト: 処理が5分を超えたため停止しました');
+      setFetchResults({ total: 0, time: '300+', error: true });
+      setProgress(0);
+    }, 300000);
+
     const progressCallback: ProgressCallback = (status, current, total) => {
       setCurrentStatus(status);
       setProgress(total > 0 ? (current / total) * 100 : 0);
@@ -78,6 +85,9 @@ const DataSources = () => {
           break;
       }
 
+      // Clear timeout if successful
+      clearTimeout(timeoutId);
+
       // Save fetched data to Supabase master data
       if (corporateData.length > 0) {
         setCurrentStatus(`取得した${corporateData.length}件のデータを企業マスターに保存中...`);
@@ -91,14 +101,19 @@ const DataSources = () => {
         setCurrentStatus('取得できる企業データはありませんでした。');
       }
     } catch (error) {
+      // Clear timeout on error
+      clearTimeout(timeoutId);
       console.error('企業データ取得または保存エラー:', error);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      setCurrentStatus('エラーが発生しました。詳細はコンソールを確認してください。');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setCurrentStatus(`❌ エラー: ${errorMessage}`);
       setFetchResults({ total: 0, time: duration, error: true });
+      setProgress(0);
     } finally {
       setTimeout(() => {
         if (!isOperationRunning) {
             setCurrentStatus('');
+            setProgress(0);
         }
       }, 7000);
     }

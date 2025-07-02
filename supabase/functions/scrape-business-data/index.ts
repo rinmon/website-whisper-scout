@@ -74,7 +74,7 @@ class SafeScrapingService {
   static async fetchPageSafely(url: string, config: any = {}) {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minDelay = config.requestDelay || 8000;
+    const minDelay = config.requestDelay || 5000;
     
     if (timeSinceLastRequest < minDelay) {
       const waitTime = minDelay - timeSinceLastRequest;
@@ -82,59 +82,89 @@ class SafeScrapingService {
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
     
-    // キャッシュチェック（1時間有効）
+    // キャッシュチェック（30分有効）
     const cached = this.pageCache.get(url);
-    if (cached && (now - cached.timestamp) < 3600000) {
+    if (cached && (now - cached.timestamp) < 1800000) {
       console.log(`💾 キャッシュから取得: ${url}`);
       return cached.content;
     }
     
-    const maxRetries = config.maxRetries || 3;
+    const maxRetries = config.maxRetries || 2;
     let lastError: any = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🔄 取得試行 ${attempt}/${maxRetries}: ${url}`);
         
+        // より自然なブラウザリクエストを模倣
+        const headers = {
+          'User-Agent': config.userAgent,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Cache-Control': 'max-age=0'
+        };
+        
         const response = await fetch(url, {
-          headers: {
-            'User-Agent': config.userAgent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'max-age=0'
-          },
-          signal: AbortSignal.timeout(config.timeout || 30000)
+          method: 'GET',
+          headers,
+          signal: AbortSignal.timeout(config.timeout || 25000)
         });
         
-        if (response.ok) {
-          const content = await response.text();
-          this.pageCache.set(url, { content, timestamp: now });
-          this.lastRequestTime = Date.now();
-          return content;
-        }
+        this.lastRequestTime = Date.now();
         
-        if (response.status === 429 || response.status === 503) {
-          const waitTime = Math.pow(2, attempt) * (config.retryDelay || 5000);
-          console.log(`⏳ レート制限検出。${waitTime}ms待機中...`);
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 3000;
+          console.log(`🚫 レート制限検出。${waitTime}ms待機中...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
         }
         
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (response.status === 503 || response.status === 502) {
+          const waitTime = Math.pow(2, attempt) * 2000;
+          console.log(`⚠️ サーバーエラー ${response.status}。${waitTime}ms待機中...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const content = await response.text();
+        
+        // 基本的な検証
+        if (content.length < 500) {
+          console.warn(`⚠️ レスポンスが短すぎます: ${content.length}文字`);
+          if (attempt < maxRetries) continue;
+        }
+        
+        // キャッシュに保存
+        this.pageCache.set(url, { content, timestamp: now });
+        console.log(`✅ 取得成功: ${url} (${content.length}文字)`);
+        
+        return content;
         
       } catch (error) {
         lastError = error;
+        console.error(`❌ 取得エラー (試行 ${attempt}): ${error}`);
+        
         if (attempt < maxRetries) {
-          const waitTime = Math.pow(2, attempt) * (config.retryDelay || 5000);
+          const waitTime = Math.pow(2, attempt) * (config.retryDelay || 3000);
           console.log(`⏳ ${waitTime}ms 待機後に再試行...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
     }
     
-    throw lastError;
+    throw lastError || new Error('スクレイピングに失敗しました');
   }
 }
 
@@ -152,17 +182,17 @@ async function scrapeTabelogData(prefecture: string) {
     console.log(`🍽️ 食べログスクレイピング開始: ${url}`);
     
     const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
     ];
     
     const config = {
       maxRetries: 3,
-      retryDelay: 5000,
-      requestDelay: 8000, // 8秒間隔
+      retryDelay: 3000,
+      requestDelay: 5000,
       userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
-      timeout: 30000
+      timeout: 25000
     };
 
     const html = await SafeScrapingService.fetchPageSafely(url, config);
@@ -173,26 +203,43 @@ async function scrapeTabelogData(prefecture: string) {
     }
 
     const businesses = [];
-    const patterns = [
-      /<h3[^>]*class="[^"]*list-rst__name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*class="[^"]*list-rst__rst-name-target[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*list-rst__header[^"]*"[^>]*>[\s\S]*?<h3[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*href="(\/[^"]*\/[^"]*\/\d+\/)"[^>]*>([^<]+)<\/a>/g
+    
+    // より具体的な食べログの店舗リストパターン
+    const namePatterns = [
+      // リスト内の店舗名リンク
+      /<a[^>]*class="[^"]*list-rst__rst-name-target[^"]*"[^>]*href="([^"]+)"[^>]*title="([^"]+)"/g,
+      // 検索結果の店舗名
+      /<h3[^>]*class="[^"]*list-rst__rst-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // ランキングリストの店舗名
+      /<div[^>]*class="[^"]*rstlist-info[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
     ];
     
-    for (const pattern of patterns) {
+    for (const pattern of namePatterns) {
       let match;
-      while ((match = pattern.exec(html)) !== null && businesses.length < 20) {
+      while ((match = pattern.exec(html)) !== null && businesses.length < 15) {
         const [, url, name] = match;
-        const cleanName = name.trim().replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+        const cleanName = name.trim()
+          .replace(/\s+/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"');
         
         if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
+          // ジャンル抽出の試行
+          let genre = '飲食店';
+          const genrePattern = new RegExp(`${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]{0,500}?class="[^"]*list-rst__category[^"]*"[^>]*>([^<]+)`, 'i');
+          const genreMatch = html.match(genrePattern);
+          if (genreMatch) {
+            genre = genreMatch[1].trim();
+          }
+          
           businesses.push({
             name: cleanName,
             website_url: url?.startsWith('http') ? url : `https://tabelog.com${url}`,
-            has_website: !!url,
+            has_website: true,
             location: prefecture,
-            industry: '飲食業',
+            industry: genre,
             phone: '',
             address: prefecture,
             data_source: '食べログ',
@@ -200,7 +247,7 @@ async function scrapeTabelogData(prefecture: string) {
           });
         }
       }
-      if (businesses.length >= 20) break;
+      if (businesses.length >= 15) break;
     }
     
     console.log(`✅ 食べログから${businesses.length}件取得`);
@@ -225,17 +272,17 @@ async function scrapeEkitenData(prefecture: string) {
     console.log(`🏪 えきてんスクレイピング開始: ${url}`);
     
     const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     ];
     
     const config = {
-      maxRetries: 3,
-      retryDelay: 8000,
-      requestDelay: 12000, // 12秒間隔（えきてんは厳格）
+      maxRetries: 2,
+      retryDelay: 4000,
+      requestDelay: 8000,
       userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
-      timeout: 35000
+      timeout: 30000
     };
 
     const html = await SafeScrapingService.fetchPageSafely(url, config);
@@ -246,25 +293,45 @@ async function scrapeEkitenData(prefecture: string) {
     }
 
     const businesses = [];
-    const patterns = [
-      /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*shop-item[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*class="[^"]*shop-link[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
+    
+    // えきてんの実際のHTML構造に合わせたパターン
+    const namePatterns = [
+      // メインの店舗リンク
+      /<a[^>]*class="[^"]*p-shop-list__item__link[^"]*"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<h3[^>]*class="[^"]*p-shop-list__item__name[^"]*"[^>]*>([^<]+)<\/h3>/g,
+      // 代替パターン - タイトル属性付き
+      /<a[^>]*href="([^"]+)"[^>]*title="([^"]+)"[^>]*class="[^"]*shop[^"]*"/g,
+      // シンプルな店舗名パターン
+      /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
     ];
     
-    for (const pattern of patterns) {
+    for (const pattern of namePatterns) {
       let match;
-      while ((match = pattern.exec(html)) !== null && businesses.length < 15) {
+      while ((match = pattern.exec(html)) !== null && businesses.length < 10) {
         const [, url, name] = match;
-        const cleanName = name.trim().replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+        const cleanName = name.trim()
+          .replace(/\s+/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/\n/g, ' ')
+          .replace(/\t/g, '');
         
         if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
+          // カテゴリ抽出の試行
+          let category = 'サービス業';
+          const categoryPattern = new RegExp(`${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]{0,300}?class="[^"]*category[^"]*"[^>]*>([^<]+)`, 'i');
+          const categoryMatch = html.match(categoryPattern);
+          if (categoryMatch) {
+            category = categoryMatch[1].trim();
+          }
+          
           businesses.push({
             name: cleanName,
             website_url: url?.startsWith('http') ? url : `https://www.ekiten.jp${url}`,
-            has_website: !!url,
+            has_website: true,
             location: prefecture,
-            industry: '地域サービス',
+            industry: category,
             phone: '',
             address: prefecture,
             data_source: 'えきてん',
@@ -272,7 +339,7 @@ async function scrapeEkitenData(prefecture: string) {
           });
         }
       }
-      if (businesses.length >= 15) break;
+      if (businesses.length >= 10) break;
     }
     
     console.log(`✅ えきてんから${businesses.length}件取得`);
@@ -286,21 +353,32 @@ async function scrapeEkitenData(prefecture: string) {
 
 async function scrapeMaipreData(prefecture: string) {
   try {
-    const searchUrl = `https://www.maipre.jp/search/?keyword=&pref=${encodeURIComponent(prefecture)}`;
+    // まいぷれは各都道府県ごとに別ドメイン
+    const prefectureDomains: Record<string, string> = {
+      '東京都': 'tokyo',
+      '神奈川県': 'kanagawa', 
+      '大阪府': 'osaka',
+      '愛知県': 'aichi',
+      '福岡県': 'fukuoka'
+    };
+    
+    const domainCode = prefectureDomains[prefecture] || 'tokyo';
+    const searchUrl = `https://${domainCode}.maipre.jp/shop/`;
+    
     console.log(`🏢 まいぷれスクレイピング開始: ${searchUrl}`);
     
     const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
     ];
     
     const config = {
-      maxRetries: 2, // 試行回数を減らす
-      retryDelay: 12000, // 12秒間隔
-      requestDelay: 15000, // 15秒間隔（最も長い間隔）
+      maxRetries: 2,
+      retryDelay: 6000,
+      requestDelay: 10000,
       userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
-      timeout: 40000
+      timeout: 30000
     };
 
     const html = await SafeScrapingService.fetchPageSafely(searchUrl, config);
@@ -310,26 +388,50 @@ async function scrapeMaipreData(prefecture: string) {
       return [];
     }
     
-    // 多様なパターンマッチング
     const businesses = [];
-    const patterns = [
-      /<h3[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*shop-info[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*class="[^"]*store-name[^"]*"[^>]*>([^<]+)<\/a>/g,
-      /<span[^>]*class="[^"]*store-name[^"]*"[^>]*>([^<]+)<\/span>/g
+    
+    // まいぷれの実際のHTML構造に合わせたパターン
+    const namePatterns = [
+      // 店舗一覧ページの店舗名
+      /<h3[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // リスト形式の店舗名
+      /<div[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // 新しい形式の店舗リンク
+      /<a[^>]*class="[^"]*store-link[^"]*"[^>]*href="([^"]+)"[^>]*title="([^"]+)"/g,
+      // シンプルパターン
+      /<a[^>]*href="(\/shop\/[^"]+)"[^>]*>([^<]+)<\/a>/g
     ];
     
-    for (const pattern of patterns) {
+    for (const pattern of namePatterns) {
       let match;
-      while ((match = pattern.exec(html)) !== null && businesses.length < 10) {
-        const name = match[1].trim().replace(/\s+/g, ' ');
-        if (name && name.length > 1 && !businesses.some(b => b.name === name)) {
+      while ((match = pattern.exec(html)) !== null && businesses.length < 8) {
+        const [, url, name] = match;
+        const cleanName = name.trim()
+          .replace(/\s+/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/\n/g, ' ')
+          .replace(/\t/g, '')
+          .replace(/【[^】]*】/g, '') // 【】内を除去
+          .replace(/\([^)]*\)/g, ''); // ()内を除去
+        
+        if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
+          // カテゴリ抽出の試行
+          let category = '地域サービス';
+          const categoryPattern = new RegExp(`${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]{0,200}?class="[^"]*category[^"]*"[^>]*>([^<]+)`, 'i');
+          const categoryMatch = html.match(categoryPattern);
+          if (categoryMatch) {
+            category = categoryMatch[1].trim();
+          }
+          
           businesses.push({
-            name: name,
-            website_url: '',
-            has_website: false,
+            name: cleanName,
+            website_url: url?.startsWith('http') ? url : `https://${domainCode}.maipre.jp${url}`,
+            has_website: true,
             location: prefecture,
-            industry: '地域企業',
+            industry: category,
             phone: '',
             address: prefecture,
             data_source: 'まいぷれ',
@@ -337,7 +439,7 @@ async function scrapeMaipreData(prefecture: string) {
           });
         }
       }
-      if (businesses.length >= 10) break;
+      if (businesses.length >= 8) break;
     }
     
     console.log(`✅ まいぷれから${businesses.length}件取得`);

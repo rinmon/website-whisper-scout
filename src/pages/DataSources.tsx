@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useGlobalProgress } from "@/hooks/useGlobalProgress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -23,10 +24,19 @@ import { Badge } from "@/components/ui/badge";
 
 const DataSources = () => {
   // Local UI state
-  const [progress, setProgress] = useState(0);
-  const [currentStatus, setCurrentStatus] = useState('');
   const [fetchResults, setFetchResults] = useState<{ total: number; time: string; error?: boolean } | null>(null);
-  const [selectedDataSourceGroup, setSelectedDataSourceGroup] = useState<string>('all');
+  
+  // Global progress state
+  const {
+    isRunning: isProgressRunning,
+    progress,
+    currentStatus,
+    selectedDataSourceGroup,
+    startProgress,
+    updateProgress,
+    stopProgress,
+    reset: resetProgress,
+  } = useGlobalProgress();
 
   // Hook for data operations
   const {
@@ -39,7 +49,7 @@ const DataSources = () => {
     isDeleting,
   } = useBusinessData();
 
-  const isOperationRunning = isSavingBusinesses || isDeleting;
+  const isOperationRunning = isSavingBusinesses || isDeleting || isProgressRunning;
 
   const corporateDataSources = CorporateDataService.getAvailableDataSources();
 
@@ -47,22 +57,19 @@ const DataSources = () => {
   const handleCorporateDataFetch = async () => {
     if (isOperationRunning) return;
 
-    // プログレスバーを表示するために初期値を設定
-    setProgress(1);
-    setCurrentStatus(`${getSelectedGroupLabel()}の企業情報取得を開始...`);
+    // グローバルプログレス開始
+    startProgress(`${getSelectedGroupLabel()}の企業情報取得を開始...`, selectedDataSourceGroup);
     setFetchResults(null);
     const startTime = Date.now();
 
     // タイムアウト設定（5分）
     const timeoutId = setTimeout(() => {
-      setCurrentStatus('❌ タイムアウト: 処理が5分を超えたため停止しました');
+      stopProgress('❌ タイムアウト: 処理が5分を超えたため停止しました');
       setFetchResults({ total: 0, time: '300+', error: true });
-      setProgress(0);
     }, 300000);
 
     const progressCallback: ProgressCallback = (status, current, total) => {
-      setCurrentStatus(status);
-      setProgress(total > 0 ? (current / total) * 100 : 0);
+      updateProgress(total > 0 ? (current / total) * 100 : 0, status);
     };
 
     try {
@@ -92,23 +99,23 @@ const DataSources = () => {
 
       // Save fetched data to Supabase master data
       if (corporateData.length > 0) {
-        setCurrentStatus(`取得した${corporateData.length}件のデータを企業マスターに保存中...`);
+        updateProgress(80, `取得した${corporateData.length}件のデータを企業マスターに保存中...`);
         const savedBusinesses = await saveBusinessesToMaster(corporateData);
         
         // ユーザーとの関連付けも自動実行
         if (savedBusinesses.length > 0) {
-          setCurrentStatus(`${savedBusinesses.length}件のデータをあなたの企業リストに追加中...`);
+          updateProgress(90, `${savedBusinesses.length}件のデータをあなたの企業リストに追加中...`);
           const businessIds = savedBusinesses.map(business => business.id);
           await addMultipleBusinessesToUser(businessIds);
         }
         
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         setFetchResults({ total: savedBusinesses.length, time: duration });
-        setCurrentStatus(`✅ 企業データ取得・保存完了: ${savedBusinesses.length}社 (処理時間: ${duration}秒)`);
+        stopProgress(`✅ 企業データ取得・保存完了: ${savedBusinesses.length}社 (処理時間: ${duration}秒)`);
       } else {
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
         setFetchResults({ total: 0, time: duration });
-        setCurrentStatus('取得できる企業データはありませんでした。');
+        stopProgress('取得できる企業データはありませんでした。');
       }
     } catch (error) {
       // Clear timeout on error
@@ -116,56 +123,32 @@ const DataSources = () => {
       console.error('企業データ取得または保存エラー:', error);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setCurrentStatus(`❌ エラー: ${errorMessage}`);
+      stopProgress(`❌ エラー: ${errorMessage}`);
       setFetchResults({ total: 0, time: duration, error: true });
-      setProgress(0);
     } finally {
-      setTimeout(() => {
-        if (!isOperationRunning) {
-            setCurrentStatus('');
-            setProgress(0);
-        }
-      }, 7000);
+      // グローバルプログレスが自動的に5秒後にリセットされる
     }
   };
 
   // Handler for clearing all user data
   const handleClearAllUserData = async () => {
     if (isOperationRunning) return;
-    setCurrentStatus('ユーザーの企業関連付けデータを削除しています...');
     try {
       await clearAllUserData();
-      setCurrentStatus('ユーザーの企業関連付けデータが正常に削除されました。');
       setFetchResults(null);
     } catch (error) {
       console.error('ユーザーデータ削除エラー:', error);
-      setCurrentStatus('ユーザーデータの削除に失敗しました。');
-    } finally {
-        setTimeout(() => {
-            if (!isOperationRunning) {
-                setCurrentStatus('');
-            }
-        }, 5000);
     }
   };
 
   // モックデータを削除
   const handleDeleteMockData = async () => {
     if (isOperationRunning) return;
-    setCurrentStatus('モックデータを削除しています...');
     try {
       await deleteMockData();
-      setCurrentStatus('モックデータが正常に削除されました。');
       setFetchResults(null);
     } catch (error) {
       console.error('モックデータ削除エラー:', error);
-      setCurrentStatus('モックデータの削除に失敗しました。');
-    } finally {
-        setTimeout(() => {
-            if (!isOperationRunning) {
-                setCurrentStatus('');
-            }
-        }, 5000);
     }
   };
 
@@ -245,12 +228,14 @@ const DataSources = () => {
 
             <DataSourceSelector
               selectedGroup={selectedDataSourceGroup}
-              onGroupSelect={setSelectedDataSourceGroup}
+                onGroupSelect={() => {
+                  // データソース選択は読み取り専用でグローバル状態を使用
+                }}
               onStartFetch={handleCorporateDataFetch}
               isRunning={isSavingBusinesses}
             />
 
-            {(isSavingBusinesses || progress > 0) && (
+            {(isSavingBusinesses || isProgressRunning) && (
               <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">

@@ -1,107 +1,137 @@
-
 import { ScrapingService } from './scrapingService';
-import { BusinessPayload } from '@/types/business';
+
+export interface EkitenBusiness {
+  name: string;
+  url?: string;
+  category?: string;
+  area?: string;
+  address?: string;
+}
 
 export class EkitenScraper {
   private static readonly BASE_URL = 'https://www.ekiten.jp';
+  private static readonly PREFECTURE_MAP: Record<string, string> = {
+    '東京都': 'tokyo',
+    '大阪府': 'osaka',
+    '愛知県': 'aichi',
+    '神奈川県': 'kanagawa',
+    '福岡県': 'fukuoka',
+    '北海道': 'hokkaido',
+    '京都府': 'kyoto',
+    '兵庫県': 'hyogo',
+    '埼玉県': 'saitama',
+    '千葉県': 'chiba'
+  };
 
-  static async scrapeBusinessData(prefecture: string = '東京都'): Promise<BusinessPayload[]> {
-    console.log(`🏪 えきてんから${prefecture}の店舗データを取得開始`);
-    
+  static async scrapeBusinesses(prefecture: string = '東京都', limit: number = 15): Promise<EkitenBusiness[]> {
     try {
-      const searchUrl = this.getSearchUrl(prefecture);
-      const html = await ScrapingService.fetchPage(searchUrl);
+      const prefCode = this.PREFECTURE_MAP[prefecture] || 'tokyo';
+      const url = `${this.BASE_URL}/${prefCode}/`;
       
-      const businesses = this.parseBusinessData(html, prefecture);
-      console.log(`✅ えきてんから${businesses.length}件の店舗データを取得`);
+      console.log(`🏪 えきてんスクレイピング開始: ${url}`);
+
+      // えきてん固有の設定（更に慎重な設定）
+      const userAgents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      ];
+
+      const config = {
+        maxRetries: 3,
+        retryDelay: 8000, // 8秒間隔
+        requestDelay: 12000, // 12秒間隔（えきてんは厳格）
+        userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+        timeout: 35000
+      };
+
+      const html = await ScrapingService.fetchPage(url, config);
+      
+      if (!html || html.length < 1000) {
+        console.warn('⚠️ えきてん: 取得したHTMLが短すぎます');
+        return [];
+      }
+
+      const businesses = this.extractBusinessData(html, prefecture, limit);
+      console.log(`✅ えきてんから${businesses.length}件の企業情報を抽出`);
       
       return businesses;
+
     } catch (error) {
-      console.error('❌ えきてんのスクレイピングエラー:', error);
-      throw error;
+      console.error('❌ えきてんスクレイピングエラー:', error);
+      return [];
     }
   }
 
-  private static getSearchUrl(prefecture: string): string {
-    const prefectureMap: Record<string, string> = {
-      '東京都': 'tokyo',
-      '大阪府': 'osaka', 
-      '愛知県': 'aichi',
-      '神奈川県': 'kanagawa',
-      '福岡県': 'fukuoka'
-    };
+  private static extractBusinessData(html: string, prefecture: string, limit: number): EkitenBusiness[] {
+    const businesses: EkitenBusiness[] = [];
     
-    const prefCode = prefectureMap[prefecture] || 'tokyo';
-    return `${this.BASE_URL}/${prefCode}/`;
+    // えきてん用の抽出パターン
+    const patterns = [
+      // メインの店舗名パターン
+      /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // リスト項目パターン
+      /<div[^>]*class="[^"]*shop-item[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // シンプルリンクパターン
+      /<a[^>]*class="[^"]*shop-link[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // 代替パターン
+      /<div[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null && businesses.length < limit) {
+        const [, url, name] = match;
+        const cleanName = name.trim()
+          .replace(/\s+/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"');
+        
+        if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
+          businesses.push({
+            name: cleanName,
+            url: url?.startsWith('http') ? url : `${this.BASE_URL}${url}`,
+            area: prefecture
+          });
+        }
+      }
+      
+      if (businesses.length >= limit) break;
+    }
+
+    // 追加情報の抽出
+    businesses.forEach(business => {
+      this.enrichBusinessData(business, html);
+    });
+
+    return businesses.slice(0, limit);
   }
 
-  private static parseBusinessData(html: string, prefecture: string): BusinessPayload[] {
-    const businesses: BusinessPayload[] = [];
-    
+  private static enrichBusinessData(business: EkitenBusiness, html: string): void {
     try {
-      // 店舗情報の抽出
-      const shopPattern = /<div[^>]*class="[^"]*shop-info[^"]*"[^>]*>(.*?)<\/div>/gs;
-      const matches = html.match(shopPattern);
+      const businessNameEscaped = business.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      if (matches) {
-        matches.forEach((match, index) => {
-          try {
-            const name = this.extractName(match);
-            const address = this.extractAddress(match);
-            const phone = this.extractPhone(match);
-            const website = this.extractWebsite(match);
-            const category = this.extractCategory(match);
-            
-            if (name) {
-              businesses.push({
-                name: name,
-                website_url: website || '',
-                has_website: !!website,
-                location: prefecture,
-                industry: category || '不明',
-                phone: phone || '',
-                address: address || '',
-                data_source: 'えきてん',
-                is_new: true
-              });
-            }
-          } catch (error) {
-            console.warn(`店舗データ解析エラー (${index}):`, error);
-          }
-        });
+      // カテゴリの抽出
+      const categoryPattern = new RegExp(`${businessNameEscaped}[\\s\\S]*?class="[^"]*category[^"]*"[^>]*>([^<]+)`, 'i');
+      const categoryMatch = html.match(categoryPattern);
+      if (categoryMatch) {
+        business.category = categoryMatch[1].trim();
+      }
+
+      // 住所の抽出
+      const addressPattern = new RegExp(`${businessNameEscaped}[\\s\\S]*?class="[^"]*address[^"]*"[^>]*>([^<]+)`, 'i');
+      const addressMatch = html.match(addressPattern);
+      if (addressMatch) {
+        business.address = addressMatch[1].trim();
       }
     } catch (error) {
-      console.error('HTML解析エラー:', error);
+      // エラーは無視（基本情報は取得済み）
     }
-    
-    return businesses;
   }
 
-  private static extractName(html: string): string | null {
-    const nameMatch = html.match(/<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>([^<]+)<\/h3>/) ||
-                      html.match(/<a[^>]*class="[^"]*shop-name[^"]*"[^>]*>([^<]+)<\/a>/);
-    return nameMatch ? nameMatch[1].trim() : null;
-  }
-
-  private static extractAddress(html: string): string | null {
-    const addressMatch = html.match(/<span[^>]*class="[^"]*address[^"]*"[^>]*>([^<]+)<\/span>/) ||
-                         html.match(/住所[^>]*>([^<]+)</);
-    return addressMatch ? addressMatch[1].trim() : null;
-  }
-
-  private static extractPhone(html: string): string | null {
-    const phoneMatch = html.match(/(\d{2,4}-\d{2,4}-\d{4})/) ||
-                      html.match(/電話[^>]*>([^<]+)</);
-    return phoneMatch ? phoneMatch[1] : null;
-  }
-
-  private static extractWebsite(html: string): string | null {
-    const websiteMatch = html.match(/<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>.*?サイト.*?<\/a>/i);
-    return websiteMatch ? websiteMatch[1] : null;
-  }
-
-  private static extractCategory(html: string): string | null {
-    const categoryMatch = html.match(/<span[^>]*class="[^"]*category[^"]*"[^>]*>([^<]+)<\/span>/);
-    return categoryMatch ? categoryMatch[1].trim() : null;
+  static getAvailablePrefectures(): string[] {
+    return Object.keys(this.PREFECTURE_MAP);
   }
 }

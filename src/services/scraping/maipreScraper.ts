@@ -1,108 +1,141 @@
-
 import { ScrapingService } from './scrapingService';
-import { BusinessPayload } from '@/types/business';
+
+export interface MaipreBusiness {
+  name: string;
+  url?: string;
+  category?: string;
+  area?: string;
+  description?: string;
+}
 
 export class MaipreScraper {
   private static readonly BASE_URL = 'https://www.maipre.jp';
-
-  static async scrapeBusinessData(prefecture: string = '東京都'): Promise<BusinessPayload[]> {
-    console.log(`🏢 まいぷれから${prefecture}の店舗データを取得開始`);
-    
+  
+  static async scrapeBusinesses(prefecture: string = '東京都', limit: number = 10): Promise<MaipreBusiness[]> {
     try {
-      const searchUrl = this.getSearchUrl(prefecture);
-      const html = await ScrapingService.fetchPage(searchUrl);
+      // まいぷれは検索パラメータを使用
+      const searchUrl = `${this.BASE_URL}/search/?keyword=&pref=${encodeURIComponent(prefecture)}`;
       
-      const businesses = this.parseBusinessData(html, prefecture);
-      console.log(`✅ まいぷれから${businesses.length}件の店舗データを取得`);
+      console.log(`🏢 まいぷれスクレイピング開始: ${searchUrl}`);
+
+      // まいぷれ固有の設定（最も慎重な設定）
+      const userAgents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
+      ];
+
+      const config = {
+        maxRetries: 2, // 試行回数を減らす
+        retryDelay: 12000, // 12秒間隔
+        requestDelay: 15000, // 15秒間隔（最も長い間隔）
+        userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+        timeout: 40000
+      };
+
+      const html = await ScrapingService.fetchPage(searchUrl, config);
+      
+      if (!html || html.length < 1000) {
+        console.warn('⚠️ まいぷれ: 取得したHTMLが短すぎます');
+        return [];
+      }
+
+      const businesses = this.extractBusinessData(html, prefecture, limit);
+      console.log(`✅ まいぷれから${businesses.length}件の企業情報を抽出`);
       
       return businesses;
+
     } catch (error) {
-      console.error('❌ まいぷれのスクレイピングエラー:', error);
-      throw error;
+      console.error('❌ まいぷれスクレイピングエラー:', error);
+      return [];
     }
   }
 
-  private static getSearchUrl(prefecture: string): string {
-    const prefectureMap: Record<string, string> = {
-      '東京都': 'tokyo',
-      '大阪府': 'osaka',
-      '愛知県': 'aichi', 
-      '神奈川県': 'kanagawa',
-      '福岡県': 'fukuoka'
-    };
+  private static extractBusinessData(html: string, prefecture: string, limit: number): MaipreBusiness[] {
+    const businesses: MaipreBusiness[] = [];
     
-    const prefCode = prefectureMap[prefecture] || 'tokyo';
-    return `${this.BASE_URL}/${prefCode}/shop/`;
+    // まいぷれ用の抽出パターン
+    const patterns = [
+      // 検索結果リストパターン
+      /<h3[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // 店舗情報パターン
+      /<div[^>]*class="[^"]*shop-info[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // シンプルパターン
+      /<a[^>]*class="[^"]*store-name[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // スパン要素パターン
+      /<span[^>]*class="[^"]*store-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      // 代替パターン
+      /<div[^>]*class="[^"]*business-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null && businesses.length < limit) {
+        const [, url, name] = match;
+        const cleanName = name.trim()
+          .replace(/\s+/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/\n/g, ' ')
+          .replace(/\t/g, '');
+        
+        if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
+          businesses.push({
+            name: cleanName,
+            url: url?.startsWith('http') ? url : `${this.BASE_URL}${url}`,
+            area: prefecture
+          });
+        }
+      }
+      
+      if (businesses.length >= limit) break;
+    }
+
+    // 追加情報の抽出
+    businesses.forEach(business => {
+      this.enrichBusinessData(business, html);
+    });
+
+    return businesses.slice(0, limit);
   }
 
-  private static parseBusinessData(html: string, prefecture: string): BusinessPayload[] {
-    const businesses: BusinessPayload[] = [];
-    
+  private static enrichBusinessData(business: MaipreBusiness, html: string): void {
     try {
-      // 店舗情報の抽出
-      const shopPattern = /<div[^>]*class="[^"]*shop[^"]*"[^>]*>(.*?)<\/div>/gs;
-      const matches = html.match(shopPattern);
+      const businessNameEscaped = business.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      if (matches) {
-        matches.forEach((match, index) => {
-          try {
-            const name = this.extractName(match);
-            const address = this.extractAddress(match);
-            const phone = this.extractPhone(match);
-            const website = this.extractWebsite(match);
-            const category = this.extractCategory(match);
-            
-            if (name) {
-              businesses.push({
-                name: name,
-                website_url: website || '',
-                has_website: !!website,
-                location: prefecture,
-                industry: category || '不明',
-                phone: phone || '',
-                address: address || '',
-                data_source: 'まいぷれ',
-                is_new: true
-              });
-            }
-          } catch (error) {
-            console.warn(`店舗データ解析エラー (${index}):`, error);
-          }
-        });
+      // カテゴリの抽出
+      const categoryPatterns = [
+        new RegExp(`${businessNameEscaped}[\\s\\S]*?class="[^"]*category[^"]*"[^>]*>([^<]+)`, 'i'),
+        new RegExp(`${businessNameEscaped}[\\s\\S]*?class="[^"]*genre[^"]*"[^>]*>([^<]+)`, 'i'),
+        new RegExp(`${businessNameEscaped}[\\s\\S]*?class="[^"]*business-type[^"]*"[^>]*>([^<]+)`, 'i')
+      ];
+
+      for (const pattern of categoryPatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          business.category = match[1].trim();
+          break;
+        }
+      }
+
+      // 説明文の抽出
+      const descriptionPattern = new RegExp(`${businessNameEscaped}[\\s\\S]*?class="[^"]*description[^"]*"[^>]*>([^<]+)`, 'i');
+      const descriptionMatch = html.match(descriptionPattern);
+      if (descriptionMatch) {
+        business.description = descriptionMatch[1].trim().substring(0, 100) + '...';
       }
     } catch (error) {
-      console.error('HTML解析エラー:', error);
+      // エラーは無視（基本情報は取得済み）
     }
-    
-    return businesses;
   }
 
-  private static extractName(html: string): string | null {
-    const nameMatch = html.match(/<h3[^>]*>([^<]+)<\/h3>/) ||
-                      html.match(/<a[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/a>/);
-    return nameMatch ? nameMatch[1].trim() : null;
-  }
-
-  private static extractAddress(html: string): string | null {
-    const addressMatch = html.match(/<span[^>]*class="[^"]*address[^"]*"[^>]*>([^<]+)<\/span>/) ||
-                         html.match(/住所[^>]*>([^<]+)</);
-    return addressMatch ? addressMatch[1].trim() : null;
-  }
-
-  private static extractPhone(html: string): string | null {
-    const phoneMatch = html.match(/(\d{2,4}-\d{2,4}-\d{4})/) ||
-                      html.match(/電話[^>]*>([^<]+)</);
-    return phoneMatch ? phoneMatch[1] : null;
-  }
-
-  private static extractWebsite(html: string): string | null {
-    const websiteMatch = html.match(/<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>.*?サイト.*?<\/a>/i) ||
-                         html.match(/<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>.*?ホームページ.*?<\/a>/i);
-    return websiteMatch ? websiteMatch[1] : null;
-  }
-
-  private static extractCategory(html: string): string | null {
-    const categoryMatch = html.match(/<span[^>]*class="[^"]*category[^"]*"[^>]*>([^<]+)<\/span>/);
-    return categoryMatch ? categoryMatch[1].trim() : null;
+  static getSupportedPrefectures(): string[] {
+    return [
+      '東京都', '大阪府', '愛知県', '神奈川県', '福岡県',
+      '北海道', '京都府', '兵庫県', '埼玉県', '千葉県',
+      '静岡県', '広島県', '宮城県', '新潟県', '長野県'
+    ];
   }
 }

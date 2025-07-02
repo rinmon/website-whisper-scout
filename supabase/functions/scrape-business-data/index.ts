@@ -104,97 +104,131 @@ serve(async (req) => {
   }
 });
 
+// スクレイピングサービスクラス（安全なスクレイピング機能）
+class SafeScrapingService {
+  private static lastRequestTime = 0;
+  private static pageCache = new Map<string, { content: string; timestamp: number }>();
+  
+  static async fetchPageSafely(url: string, config: any = {}) {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    const minDelay = config.requestDelay || 8000;
+    
+    if (timeSinceLastRequest < minDelay) {
+      const waitTime = minDelay - timeSinceLastRequest;
+      console.log(`⏳ レート制限: ${waitTime}ms 待機`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    // キャッシュチェック（1時間有効）
+    const cached = this.pageCache.get(url);
+    if (cached && (now - cached.timestamp) < 3600000) {
+      console.log(`💾 キャッシュから取得: ${url}`);
+      return cached.content;
+    }
+    
+    const maxRetries = config.maxRetries || 3;
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 取得試行 ${attempt}/${maxRetries}: ${url}`);
+        
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': config.userAgent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'max-age=0'
+          },
+          signal: AbortSignal.timeout(config.timeout || 30000)
+        });
+        
+        if (response.ok) {
+          const content = await response.text();
+          this.pageCache.set(url, { content, timestamp: now });
+          this.lastRequestTime = Date.now();
+          return content;
+        }
+        
+        if (response.status === 429 || response.status === 503) {
+          const waitTime = Math.pow(2, attempt) * (config.retryDelay || 5000);
+          console.log(`⏳ レート制限検出。${waitTime}ms待機中...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxRetries) {
+          const waitTime = Math.pow(2, attempt) * (config.retryDelay || 5000);
+          console.log(`⏳ ${waitTime}ms 待機後に再試行...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+    }
+    
+    throw lastError;
+  }
+}
+
 async function scrapeTabelogData(prefecture: string) {
   try {
-    // より長いレート制限（ブロック回避）
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
     const prefectureMap: Record<string, string> = {
-      '東京都': 'tokyo',
-      '大阪府': 'osaka',
-      '愛知県': 'aichi',
-      '神奈川県': 'kanagawa',
-      '福岡県': 'fukuoka'
+      '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
+      '神奈川県': 'kanagawa', '福岡県': 'fukuoka', '北海道': 'hokkaido',
+      '京都府': 'kyoto', '兵庫県': 'hyogo', '埼玉県': 'saitama', '千葉県': 'chiba'
     };
     
     const prefCode = prefectureMap[prefecture] || 'tokyo';
+    const url = `https://tabelog.com/${prefCode}/`;
     
-    // より自然なアクセスパターン
+    console.log(`🍽️ 食べログスクレイピング開始: ${url}`);
+    
     const userAgents = [
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
     ];
     
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-    
-    const url = `https://tabelog.com/${prefCode}/`;
-    console.log(`🔍 食べログURL: ${url}`);
-    
-    // リトライ機能付きフェッチ
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        response = await fetch(url, {
-          headers: {
-            'User-Agent': randomUserAgent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Cache-Control': 'max-age=0'
-          }
-        });
-        
-        if (response.ok) break;
-        
-        if (response.status === 429 || response.status === 503) {
-          // レート制限の場合は長時間待機
-          const waitTime = Math.pow(2, retryCount) * 10000; // 指数バックオフ
-          console.log(`⏳ レート制限検出。${waitTime}ms待機中...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-        
-        retryCount++;
-      } catch (error) {
-        retryCount++;
-        if (retryCount >= maxRetries) throw error;
-        await new Promise(resolve => setTimeout(resolve, 5000));
-      }
-    }
+    const config = {
+      maxRetries: 3,
+      retryDelay: 5000,
+      requestDelay: 8000, // 8秒間隔
+      userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+      timeout: 30000
+    };
 
-    if (!response || !response.ok) {
-      console.warn(`⚠️ 食べログ応答エラー: ${response?.status}`);
+    const html = await SafeScrapingService.fetchPageSafely(url, config);
+    
+    if (!html || html.length < 1000) {
+      console.warn('⚠️ 食べログ: 取得したHTMLが短すぎます');
       return [];
     }
 
-    const html = await response.text();
-    console.log(`📄 食べログHTML取得: ${html.length}文字`);
-    
-    // より柔軟なパターンマッチング
     const businesses = [];
     const patterns = [
-      /<h3[^>]*class="[^"]*list-rst__name[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*class="[^"]*list-rst__rst-name-target[^"]*"[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*list-rst__header[^"]*"[^>]*>[\s\S]*?<h3[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/g
+      /<h3[^>]*class="[^"]*list-rst__name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      /<a[^>]*class="[^"]*list-rst__rst-name-target[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      /<div[^>]*class="[^"]*list-rst__header[^"]*"[^>]*>[\s\S]*?<h3[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      /<a[^>]*href="(\/[^"]*\/[^"]*\/\d+\/)"[^>]*>([^<]+)<\/a>/g
     ];
     
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.exec(html)) !== null && businesses.length < 20) {
-        const name = match[1].trim().replace(/\s+/g, ' ');
-        if (name && name.length > 1 && !businesses.some(b => b.name === name)) {
+        const [, url, name] = match;
+        const cleanName = name.trim().replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+        
+        if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
           businesses.push({
-            name: name,
-            website_url: '',
-            has_website: false,
+            name: cleanName,
+            website_url: url?.startsWith('http') ? url : `https://tabelog.com${url}`,
+            has_website: !!url,
             location: prefecture,
             industry: '飲食業',
             phone: '',
@@ -211,98 +245,62 @@ async function scrapeTabelogData(prefecture: string) {
     return businesses;
     
   } catch (error) {
-    console.error('食べログスクレイピングエラー:', error);
+    console.error('❌ 食べログスクレイピングエラー:', error);
     return [];
   }
 }
 
 async function scrapeEkitenData(prefecture: string) {
   try {
-    // より安全なレート制限
-    await new Promise(resolve => setTimeout(resolve, 7000));
-    
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
-    ];
-    
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-    
-    // より具体的な検索URL
     const prefectureMap: Record<string, string> = {
-      '東京都': 'tokyo',
-      '大阪府': 'osaka',
-      '愛知県': 'aichi',
-      '神奈川県': 'kanagawa',
-      '福岡県': 'fukuoka'
+      '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
+      '神奈川県': 'kanagawa', '福岡県': 'fukuoka', '北海道': 'hokkaido'
     };
     
     const prefCode = prefectureMap[prefecture] || 'tokyo';
     const url = `https://www.ekiten.jp/${prefCode}/`;
-    console.log(`🔍 えきてんURL: ${url}`);
     
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
+    console.log(`🏪 えきてんスクレイピング開始: ${url}`);
     
-    while (retryCount < maxRetries) {
-      try {
-        response = await fetch(url, {
-          headers: {
-            'User-Agent': randomUserAgent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none'
-          }
-        });
-        
-        if (response.ok) break;
-        
-        if (response.status === 429 || response.status === 503) {
-          const waitTime = Math.pow(2, retryCount) * 15000;
-          console.log(`⏳ えきてんレート制限。${waitTime}ms待機中...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-        }
-        
-        retryCount++;
-      } catch (error) {
-        retryCount++;
-        if (retryCount >= maxRetries) throw error;
-        await new Promise(resolve => setTimeout(resolve, 8000));
-      }
-    }
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    ];
+    
+    const config = {
+      maxRetries: 3,
+      retryDelay: 8000,
+      requestDelay: 12000, // 12秒間隔（えきてんは厳格）
+      userAgent: userAgents[Math.floor(Math.random() * userAgents.length)],
+      timeout: 35000
+    };
 
-    if (!response || !response.ok) {
-      console.warn(`⚠️ えきてん応答エラー: ${response?.status}`);
+    const html = await SafeScrapingService.fetchPageSafely(url, config);
+    
+    if (!html || html.length < 1000) {
+      console.warn('⚠️ えきてん: 取得したHTMLが短すぎます');
       return [];
     }
 
-    const html = await response.text();
-    console.log(`📄 えきてんHTML取得: ${html.length}文字`);
-    
-    // 複数パターンでマッチング
     const businesses = [];
     const patterns = [
-      /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*shop-item[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*class="[^"]*shop-link[^"]*"[^>]*>([^<]+)<\/a>/g
+      /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      /<div[^>]*class="[^"]*shop-item[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g,
+      /<a[^>]*class="[^"]*shop-link[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g
     ];
     
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.exec(html)) !== null && businesses.length < 15) {
-        const name = match[1].trim().replace(/\s+/g, ' ');
-        if (name && name.length > 1 && !businesses.some(b => b.name === name)) {
+        const [, url, name] = match;
+        const cleanName = name.trim().replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+        
+        if (cleanName && cleanName.length > 1 && !businesses.some(b => b.name === cleanName)) {
           businesses.push({
-            name: name,
-            website_url: '',
-            has_website: false,
+            name: cleanName,
+            website_url: url?.startsWith('http') ? url : `https://www.ekiten.jp${url}`,
+            has_website: !!url,
             location: prefecture,
             industry: '地域サービス',
             phone: '',
@@ -326,8 +324,8 @@ async function scrapeEkitenData(prefecture: string) {
 
 async function scrapeMaipreData(prefecture: string) {
   try {
-    // 最も慎重なレート制限
-    await new Promise(resolve => setTimeout(resolve, 8000));
+    const searchUrl = `https://www.maipre.jp/search/?keyword=&pref=${encodeURIComponent(prefecture)}`;
+    console.log(`🏢 まいぷれスクレイピング開始: ${searchUrl}`);
     
     const userAgents = [
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',

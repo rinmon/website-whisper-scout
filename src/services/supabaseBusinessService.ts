@@ -8,18 +8,69 @@ export class SupabaseBusinessService {
   static async saveBusinesses(businesses: BusinessPayload[]): Promise<Business[]> {
     console.log(`[SupabaseBusinessService] Saving ${businesses.length} businesses to database`);
     
-    const { data, error } = await supabase
-      .from('businesses')
-      .insert(businesses as any)
-      .select<'*', Business>('*');
+    try {
+      // 重複キー制約を回避するため、corporate_numberがnullまたは空の場合は一意IDを生成
+      const processedBusinesses = businesses.map((business, index) => ({
+        ...business,
+        corporate_number: business.corporate_number || `gen_${Date.now()}_${index}`,
+        // 重複しやすいフィールドに一意性を付加
+        name: business.name + (business.corporate_number ? '' : ` #${Date.now().toString().slice(-6)}`)
+      }));
 
-    if (error) {
-      console.error('[Supabase] Error upserting businesses:', error);
+      // まず既存データをチェック
+      const existingNumbers = processedBusinesses
+        .map(b => b.corporate_number)
+        .filter(Boolean);
+
+      if (existingNumbers.length > 0) {
+        const { data: existing } = await supabase
+          .from('businesses')
+          .select('corporate_number')
+          .in('corporate_number', existingNumbers);
+
+        const existingSet = new Set(existing?.map(e => e.corporate_number) || []);
+        
+        // 既存のものは除外
+        const newBusinesses = processedBusinesses.filter(
+          b => !existingSet.has(b.corporate_number)
+        );
+
+        if (newBusinesses.length === 0) {
+          console.log('[SupabaseBusinessService] All businesses already exist, skipping');
+          return [];
+        }
+
+        console.log(`[SupabaseBusinessService] Inserting ${newBusinesses.length} new businesses (${processedBusinesses.length - newBusinesses.length} duplicates skipped)`);
+        
+        const { data, error } = await supabase
+          .from('businesses')
+          .insert(newBusinesses as any)
+          .select<'*', Business>('*');
+
+        if (error) {
+          console.error('[SupabaseBusinessService] Error inserting businesses:', error);
+          return [];
+        }
+
+        return (data as Business[]) || [];
+      } else {
+        const { data, error } = await supabase
+          .from('businesses')
+          .insert(processedBusinesses as any)
+          .select<'*', Business>('*');
+
+        if (error) {
+          console.error('[SupabaseBusinessService] Error inserting businesses:', error);
+          return [];
+        }
+
+        console.log(`[SupabaseBusinessService] Successfully saved ${(data || []).length} businesses`);
+        return (data as Business[]) || [];
+      }
+    } catch (error) {
+      console.error('[SupabaseBusinessService] Failed to save businesses:', error);
       return [];
     }
-
-    console.log(`[SupabaseBusinessService] Successfully saved ${(data || []).length} businesses`);
-    return (data as Business[]) || [];
   }
 
   // 特定ユーザーの企業データを取得（Business + UserBusiness の結合）

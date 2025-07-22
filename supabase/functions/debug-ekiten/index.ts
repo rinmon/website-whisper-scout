@@ -133,36 +133,89 @@ async function debugEkitenScraping() {
   return results;
 }
 
-// Pythonロジック完全移植の構造分析
+// 成功した200 OKページの詳細HTML分析
 function analyzePythonStructure(html: string) {
-  console.log(`\n📋 Pythonロジック構造分析:`);
+  console.log(`\n📋 詳細HTML構造分析 (${html.length}文字):`);
   
   const analysis: any = {};
   
-  // Pythonで使用されている正確なクラス名をチェック
-  const pythonClassPatterns = [
-    'p-shop-cassette',           // メインコンテナ
-    'p-shop-cassette__name',     // 店舗名
-    'p-shop-cassette__address',  // 住所
-    'p-shop-cassette__name-link',// 詳細リンク
-    'p-shop-cassette__genre-item', // カテゴリ
-    'c-pager__next',             // 次ページリンク
-    'p-shop-info__tel-number',   // 電話番号（詳細ページ）
-    'p-shop-info__official-website-link' // 公式サイト（詳細ページ）
+  // 1. JavaScript/SPAの検出
+  const hasReact = html.includes('React') || html.includes('react');
+  const hasVue = html.includes('Vue') || html.includes('vue');
+  const hasAngular = html.includes('Angular') || html.includes('angular');
+  const hasNext = html.includes('__NEXT_DATA__') || html.includes('_next');
+  const hasNuxt = html.includes('__NUXT__') || html.includes('_nuxt');
+  
+  analysis.frameworkDetection = {
+    react: hasReact,
+    vue: hasVue,
+    angular: hasAngular,
+    nextjs: hasNext,
+    nuxtjs: hasNuxt
+  };
+  
+  console.log(`🔍 フレームワーク検出:`, analysis.frameworkDetection);
+  
+  // 2. JSON-LDまたは構造化データの検出
+  const jsonLdMatches = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/gis);
+  if (jsonLdMatches) {
+    analysis.jsonLd = jsonLdMatches.length;
+    console.log(`🔍 JSON-LD構造化データ: ${jsonLdMatches.length}個発見`);
+    try {
+      const firstJsonLd = JSON.parse(jsonLdMatches[0].match(/>(.*?)<\//s)?.[1] || '{}');
+      console.log(`🔍 最初のJSON-LD:`, firstJsonLd);
+      analysis.firstJsonLd = firstJsonLd;
+    } catch (e) {
+      console.log(`⚠️ JSON-LD解析エラー: ${e}`);
+    }
+  }
+  
+  // 3. 初期データの検出（__INITIAL_STATE__, window.__など）
+  const initialStateMatches = html.match(/window\.__[A-Z_]+__\s*=\s*({.*?});/gs);
+  if (initialStateMatches) {
+    analysis.initialStates = initialStateMatches.length;
+    console.log(`🔍 初期データ: ${initialStateMatches.length}個発見`);
+    console.log(`🔍 例: ${initialStateMatches[0].substring(0, 200)}...`);
+  }
+  
+  // 4. Laravelルート情報
+  const laravelRoutes = html.match(/route\(['"](.*?)['"][^)]*\)/g);
+  if (laravelRoutes) {
+    analysis.laravelRoutes = laravelRoutes.slice(0, 10);
+    console.log(`🔍 Laravelルート: ${laravelRoutes.length}個発見`);
+  }
+  
+  // 5. API エンドポイントの検出
+  const apiEndpoints = html.match(/['"`]\/api\/[^'"`]*['"`]/g);
+  if (apiEndpoints) {
+    analysis.apiEndpoints = [...new Set(apiEndpoints)].slice(0, 10);
+    console.log(`🔍 APIエンドポイント: ${apiEndpoints.length}個発見`);
+    console.log(`🔍 例:`, analysis.apiEndpoints);
+  }
+  
+  // 6. 従来のHTMLパターンも再確認
+  const traditionalClasses = [
+    'shop', 'store', 'business', 'item', 'card', 'list',
+    'name', 'title', 'address', 'tel', 'phone', 'url', 'website'
   ];
   
-  analysis.pythonClasses = {};
-  pythonClassPatterns.forEach(className => {
+  analysis.traditionalElements = {};
+  traditionalClasses.forEach(className => {
     const regex = new RegExp(`class="[^"]*${className}[^"]*"`, 'gi');
     const matches = html.match(regex);
     if (matches) {
-      analysis.pythonClasses[className] = matches.length;
-      console.log(`🐍 ${className}: ${matches.length}個発見`);
-      console.log(`    例: ${matches[0]}`);
-    } else {
-      console.log(`🐍 ${className}: ❌ 見つからず`);
+      analysis.traditionalElements[className] = matches.length;
+      console.log(`🔍 従来要素 ${className}: ${matches.length}個`);
     }
   });
+  
+  // 7. data-属性の検出
+  const dataAttributes = html.match(/data-[a-z-]+="[^"]*"/gi);
+  if (dataAttributes) {
+    const uniqueDataAttrs = [...new Set(dataAttributes.map(attr => attr.split('=')[0]))];
+    analysis.dataAttributes = uniqueDataAttrs.slice(0, 20);
+    console.log(`🔍 data-属性: ${uniqueDataAttrs.length}種類発見`);
+  }
   
   return analysis;
 }

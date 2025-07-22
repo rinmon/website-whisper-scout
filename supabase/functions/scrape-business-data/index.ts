@@ -1,10 +1,65 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+import FirecrawlApp from 'https://esm.sh/@mendable/firecrawl-js@latest';
 
-// えきてんスクレイピング機能
+// えきてんスクレイピング機能（Firecrawl対応）
 class EkitenScraper {
   static async scrapeBusinessNames(prefecture: string = '東京都', limit: number = 15): Promise<string[]> {
+    // まずFirecrawlを試す
+    const firecrawlResult = await this.scrapeWithFirecrawl(prefecture, limit);
+    if (firecrawlResult.length > 0) {
+      console.log(`✅ Firecrawlで${firecrawlResult.length}件の店舗名を取得`);
+      return firecrawlResult;
+    }
+    
+    // Firecrawl失敗時は従来方式でトライ
+    console.log('🔄 従来方式のスクレイピングを試行');
+    return this.scrapeWithTraditionalMethod(prefecture, limit);
+  }
+
+  // Firecrawlを使ったJavaScript対応スクレイピング
+  private static async scrapeWithFirecrawl(prefecture: string, limit: number): Promise<string[]> {
+    try {
+      const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+      if (!firecrawlApiKey) {
+        console.log('⚠️ Firecrawl APIキーが設定されていません');
+        return [];
+      }
+
+      const prefectureMap: Record<string, string> = {
+        '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
+        '神奈川県': 'kanagawa', '福岡県': 'fukuoka', '北海道': 'hokkaido',
+        '京都府': 'kyoto', '兵庫県': 'hyogo', '埼玉県': 'saitama', '千葉県': 'chiba'
+      };
+      
+      const prefCode = prefectureMap[prefecture] || 'tokyo';
+      const url = `https://www.ekiten.jp/${prefCode}/`;
+      
+      console.log(`🏪 えきてんFirecrawlスクレイピング開始: ${url}`);
+      
+      const app = new FirecrawlApp({ apiKey: firecrawlApiKey });
+      const crawlResult = await app.scrapeUrl(url, {
+        formats: ['html'],
+        waitFor: 3000, // JavaScript実行を3秒待機
+        timeout: 30000
+      });
+
+      if (!crawlResult.success) {
+        throw new Error(`Firecrawl失敗: ${crawlResult.error}`);
+      }
+
+      console.log('🎉 Firecrawlでの取得成功、店舗名を抽出中...');
+      return this.extractBusinessNamesFromFirecrawl(crawlResult.html || '', limit);
+      
+    } catch (error) {
+      console.log(`❌ Firecrawlエラー: ${error}`);
+      return [];
+    }
+  }
+
+  // 従来の方式（JavaScript未対応）
+  private static async scrapeWithTraditionalMethod(prefecture: string, limit: number): Promise<string[]> {
     try {
       const prefectureMap: Record<string, string> = {
         '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
@@ -15,7 +70,7 @@ class EkitenScraper {
       const prefCode = prefectureMap[prefecture] || 'tokyo';
       const url = `https://www.ekiten.jp/${prefCode}/`;
       
-      console.log(`🏪 えきてん店舗名スクレイピング開始: ${url}`);
+      console.log(`🏪 えきてん従来方式スクレイピング: ${url}`);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -40,16 +95,58 @@ class EkitenScraper {
       
       const names = this.extractBusinessNames(html, limit);
       if (names.length > 0) {
-        console.log(`✅ えきてんから${names.length}件の店舗名を抽出`);
+        console.log(`✅ 従来方式で${names.length}件の店舗名を抽出`);
         return names;
       }
       
       throw new Error('店舗名が抽出できませんでした');
       
     } catch (error) {
-      console.error('❌ えきてんスクレイピングエラー:', error);
+      console.error('❌ 従来方式スクレイピングエラー:', error);
+      console.log(`🔄 フォールバック: ${prefecture}から${limit}件の店舗名を生成`);
       return this.getFallbackBusinessNames(prefecture, limit);
     }
+  }
+
+  // Firecrawl結果から店舗名を抽出（JavaScript実行後のHTML）
+  private static extractBusinessNamesFromFirecrawl(html: string, limit: number): string[] {
+    const businessNames: string[] = [];
+    
+    // えきてんの新しいSPA構造に対応したパターン
+    const patterns = [
+      // React/Vue等のコンポーネントベースのクラス名
+      /<div[^>]*class="[^"]*ShopCard[^"]*"[^>]*>[\s\S]*?<h[1-6][^>]*>([^<]+)</gi,
+      /<h[1-6][^>]*class="[^"]*shop[^"]*name[^"]*"[^>]*>([^<]+)</gi,
+      /<a[^>]*class="[^"]*shop[^"]*link[^"]*"[^>]*>([^<]+)</gi,
+      // データ属性から抽出
+      /data-shop-name="([^"]+)"/gi,
+      /data-business-name="([^"]+)"/gi,
+      // JSON-LD構造化データから抽出
+      /"name"\s*:\s*"([^"]+)"/gi,
+      // Meta情報から抽出
+      /<meta[^>]*property="business:contact_data:name"[^>]*content="([^"]+)"/gi,
+      // 新しいえきてんの構造（推測）
+      /<div[^>]*class="[^"]*store-item[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      /<div[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/gi,
+      // よくあるパターン
+      /<a[^>]*href="\/shop\/\d+\/"[^>]*>([^<]+)<\/a>/gi,
+      /<div[^>]*data-testid="shop-name"[^>]*>([^<]+)<\/div>/gi
+    ];
+
+    patterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(html)) !== null && businessNames.length < limit) {
+        const name = match[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        if (name && name.length > 2 && !businessNames.includes(name) && 
+            !name.includes('検索') && !name.includes('ログイン') && !name.includes('会員登録') &&
+            !name.includes('えきてん') && !name.includes('広告') && !name.includes('PR')) {
+          businessNames.push(name);
+        }
+      }
+    });
+
+    console.log(`🎯 Firecrawlから${businessNames.length}件の店舗名を抽出完了`);
+    return businessNames.slice(0, limit);
   }
 
   private static extractBusinessNames(html: string, limit: number): string[] {

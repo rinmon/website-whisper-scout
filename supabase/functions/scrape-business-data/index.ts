@@ -49,7 +49,7 @@ class EkitenScraper {
         for (const categoryCode of categoryCodesForTest.slice(0, 2)) { // 最大2カテゴリ
           if (allBusinessNames.length >= limit) break;
           
-          const url = `https://www.ekiten.jp/g${categoryCode}/a${areaCode}/`;
+          const url = `https://www.ekiten.jp/${categoryCode}/${areaCode}/`;
           console.log(`🔍 URL取得: ${url}`);
           
           try {
@@ -106,7 +106,7 @@ class EkitenScraper {
         for (const categoryCode of categoryCodesForTest.slice(0, 2)) { // 最大2カテゴリ
           if (allBusinessNames.length >= limit) break;
           
-          const url = `https://www.ekiten.jp/g${categoryCode}/a${areaCode}/`;
+          const url = `https://www.ekiten.jp/${categoryCode}/${areaCode}/`;
           console.log(`🔍 従来方式URL取得: ${url}`);
           
           try {

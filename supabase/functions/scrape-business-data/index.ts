@@ -112,41 +112,77 @@ class EkitenScraper {
   private static extractBusinessNamesFromFirecrawl(html: string, limit: number): string[] {
     const businessNames: string[] = [];
     
-    // えきてんの新しいSPA構造に対応したパターン
+    console.log(`🔍 HTMLサイズ: ${html.length}文字, 先頭100文字: ${html.substring(0, 100)}`);
+    
+    // 改良されたえきてんパターン（より幅広く対応）
     const patterns = [
-      // React/Vue等のコンポーネントベースのクラス名
-      /<div[^>]*class="[^"]*ShopCard[^"]*"[^>]*>[\s\S]*?<h[1-6][^>]*>([^<]+)</gi,
-      /<h[1-6][^>]*class="[^"]*shop[^"]*name[^"]*"[^>]*>([^<]+)</gi,
-      /<a[^>]*class="[^"]*shop[^"]*link[^"]*"[^>]*>([^<]+)</gi,
-      // データ属性から抽出
-      /data-shop-name="([^"]+)"/gi,
-      /data-business-name="([^"]+)"/gi,
-      // JSON-LD構造化データから抽出
-      /"name"\s*:\s*"([^"]+)"/gi,
-      // Meta情報から抽出
-      /<meta[^>]*property="business:contact_data:name"[^>]*content="([^"]+)"/gi,
-      // 新しいえきてんの構造（推測）
-      /<div[^>]*class="[^"]*store-item[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/gi,
-      /<div[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/gi,
-      // よくあるパターン
-      /<a[^>]*href="\/shop\/\d+\/"[^>]*>([^<]+)<\/a>/gi,
-      /<div[^>]*data-testid="shop-name"[^>]*>([^<]+)<\/div>/gi
+      // 店舗名の基本パターン
+      /<a[^>]*href="[^"]*\/shop\/\d+[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      /<h[1-6][^>]*>[\s\S]*?<a[^>]*href="[^"]*\/shop\/\d+[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      
+      // 新しいSPA構造対応
+      /<div[^>]*class="[^"]*shop[^"]*"[^>]*>[\s\S]*?<.*?>([^<]{3,30})<\/.*?>/gi,
+      /<span[^>]*class="[^"]*name[^"]*"[^>]*>([^<]{3,30})<\/span>/gi,
+      /<div[^>]*class="[^"]*title[^"]*"[^>]*>([^<]{3,30})<\/div>/gi,
+      
+      // ReactやVueコンポーネント
+      /<div[^>]*data-testid="[^"]*shop[^"]*"[^>]*>[\s\S]*?>([^<]{3,30})<\/[^>]*>/gi,
+      /<div[^>]*data-cy="[^"]*shop[^"]*"[^>]*>[\s\S]*?>([^<]{3,30})<\/[^>]*>/gi,
+      
+      // JSON構造から
+      /"name"\s*:\s*"([^"]{3,30})"/gi,
+      /"shopName"\s*:\s*"([^"]{3,30})"/gi,
+      /"title"\s*:\s*"([^"]{3,30})"/gi,
+      
+      // メタデータから
+      /<meta[^>]*content="([^"]{3,30})[^"]*店[^"]*"/gi,
+      /<title>([^<]{3,30})[^<]*店[^<]*<\/title>/gi,
+      
+      // よくある日本語パターン
+      />([あ-ん一-龯ァ-ヶ]{2,}[^<>]{0,10}[店舗館])[<]/gi,
+      />([^<>]{3,20}[サロン|クリニック|薬局|美容|カフェ|レストラン])[<]/gi
     ];
 
-    patterns.forEach(pattern => {
+    patterns.forEach((pattern, index) => {
       let match;
+      let patternCount = 0;
       while ((match = pattern.exec(html)) !== null && businessNames.length < limit) {
-        const name = match[1].trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-        if (name && name.length > 2 && !businessNames.includes(name) && 
-            !name.includes('検索') && !name.includes('ログイン') && !name.includes('会員登録') &&
-            !name.includes('えきてん') && !name.includes('広告') && !name.includes('PR')) {
+        const name = match[1].trim()
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#x27;/g, "'")
+          .replace(/\s+/g, ' ');
+          
+        if (this.isValidBusinessName(name) && !businessNames.includes(name)) {
           businessNames.push(name);
+          patternCount++;
         }
+      }
+      if (patternCount > 0) {
+        console.log(`パターン${index + 1}で${patternCount}件抽出`);
       }
     });
 
     console.log(`🎯 Firecrawlから${businessNames.length}件の店舗名を抽出完了`);
     return businessNames.slice(0, limit);
+  }
+
+  // 有効な店舗名かどうかをチェック
+  private static isValidBusinessName(name: string): boolean {
+    if (!name || name.length < 2 || name.length > 50) return false;
+    
+    // 除外キーワード
+    const excludeKeywords = [
+      '検索', 'ログイン', '会員登録', 'えきてん', '広告', 'PR', 'MORE',
+      'もっと見る', '詳細', '情報', '一覧', 'ページ', 'サイト', 'メニュー',
+      'ナビ', 'ヘッダー', 'フッター', 'コンテンツ', '読み込み', 'Loading'
+    ];
+    
+    return !excludeKeywords.some(keyword => name.includes(keyword)) &&
+           !/^[0-9\s\-_=+\[\]{}|\\:";'<>?,./!@#$%^&*()]+$/.test(name) &&
+           name !== name.toUpperCase(); // 全て大文字は除外
   }
 
   private static extractBusinessNames(html: string, limit: number): string[] {
@@ -225,14 +261,16 @@ serve(async (req) => {
     
     // Google Maps API キーを取得
     const googleApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    console.log(`🔑 Google Maps API Key存在確認: ${googleApiKey ? '✅設定済み' : '❌未設定'}`);
+    
     if (!googleApiKey) {
       console.warn('⚠️ Google Maps API キーが設定されていません。フォールバックデータを使用します。');
       const businesses = await generateFallbackData(prefecture, limit);
       return new Response(JSON.stringify({
         success: true,
         businesses: businesses,
-        message: `${businesses.length}件のフォールバックデータを生成しました`,
-        debug: { noApiKey: true }
+        message: `${businesses.length}件のフォールバックデータを生成しました (Google Maps API Key未設定)`,
+        debug: { noApiKey: true, message: 'Google Maps APIキーを設定すると実データが取得できます' }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

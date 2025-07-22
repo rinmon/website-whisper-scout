@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Database, CheckCircle, AlertCircle, Trash2, Loader2, RefreshCw, MapPin, Activity, Plus } from "lucide-react";
 import { CorporateDataService, ProgressCallback } from "@/services/corporateDataService";
 import { useBusinessData } from "@/hooks/useBusinessData";
+import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import DataSourceSelector from "@/components/DataSourceSelector";
 import {
@@ -25,6 +26,8 @@ import { Badge } from "@/components/ui/badge";
 const DataSources = () => {
   // Local UI state
   const [fetchResults, setFetchResults] = useState<{ total: number; time: string; error?: boolean } | null>(null);
+  const [isDebugRunning, setIsDebugRunning] = useState(false);
+  const [debugResults, setDebugResults] = useState<any>(null);
   
   // Global progress state
   const {
@@ -149,6 +152,34 @@ const DataSources = () => {
       setFetchResults(null);
     } catch (error) {
       console.error('モックデータ削除エラー:', error);
+    }
+  };
+
+  // デバッグ専用ハンドラー
+  const handleDebugScraping = async () => {
+    if (isDebugRunning) return;
+    
+    setIsDebugRunning(true);
+    setDebugResults(null);
+    
+    try {
+      console.log('🐛 デバッグスクレイピング開始');
+      const { data, error } = await supabase.functions.invoke('debug-ekiten', {
+        body: {}
+      });
+      
+      if (error) {
+        console.error('デバッグエラー:', error);
+        setDebugResults({ error: error.message });
+      } else {
+        console.log('✅ デバッグ完了:', data);
+        setDebugResults(data);
+      }
+    } catch (error) {
+      console.error('デバッグ実行エラー:', error);
+      setDebugResults({ error: error instanceof Error ? error.message : '不明なエラー' });
+    } finally {
+      setIsDebugRunning(false);
     }
   };
 
@@ -280,6 +311,19 @@ const DataSources = () => {
 
             <div className="flex gap-2 flex-wrap">
               <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={handleDebugScraping}
+                disabled={isOperationRunning || isDebugRunning}
+              >
+                {isDebugRunning ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                えきてんデバッグ実行
+              </Button>
+              <Button 
                 variant="destructive" 
                 size="sm" 
                 onClick={handleDeleteMockData}
@@ -322,6 +366,34 @@ const DataSources = () => {
                 </AlertDialogContent>
               </AlertDialog>
             </div>
+
+            {/* デバッグ結果表示 */}
+            {debugResults && (
+              <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <h4 className="text-sm font-medium mb-2 flex items-center">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  えきてんデバッグ結果
+                </h4>
+                {debugResults.error ? (
+                  <div className="text-red-600 text-sm">
+                    エラー: {debugResults.error}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <strong>サマリー:</strong> {debugResults.summary?.totalUrls}個のURL、
+                      {debugResults.summary?.successUrls}個成功、
+                      {debugResults.summary?.errorUrls}個エラー
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      <pre className="text-xs bg-white p-2 border rounded">
+                        {JSON.stringify(debugResults, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

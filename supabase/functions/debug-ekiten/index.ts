@@ -5,27 +5,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// デバッグ専用えきてんスクレイピング
+// Pythonロジック完全移植版デバッグ
 async function debugEkitenScraping() {
-  console.log(`🐛 えきてんデバッグ開始`);
+  console.log(`🐛 えきてんデバッグ開始（Pythonロジック完全移植版）`);
   
-  // Pythonマニュアルの成功URL構造を完全再現
+  // Pythonコードの正しいURL構造を使用
   const testUrls = [
-    'https://www.ekiten.jp/g0104/a01109/',  // 札幌市手稲区グルメ（Pythonマニュアル成功例）
-    'https://www.ekiten.jp/g0201/a01109/',  // 札幌市手稲区美容室
-    'https://www.ekiten.jp/g0104/a01101/',  // 札幌市中央区グルメ
+    'https://www.ekiten.jp/area/hokkaido/sapporoshichuoku/',  // 札幌市中央区
+    'https://www.ekiten.jp/area/tokyo/shinjukuku/',           // 新宿区
+    'https://www.ekiten.jp/area/hokkaido/sapporoshikitaku/',  // 札幌市北区
   ];
   
   const results = [];
   
   for (const url of testUrls) {
-    console.log(`\n🔍 デバッグURL: ${url}`);
+    console.log(`\n🔍 Pythonロジックテスト: ${url}`);
     
     try {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.5',
           'Connection': 'keep-alive'
@@ -45,23 +45,22 @@ async function debugEkitenScraping() {
       const html = await response.text();
       console.log(`📊 HTMLサイズ: ${html.length}文字`);
       console.log(`📊 先頭500文字:\n${html.substring(0, 500)}`);
-      console.log(`📊 末尾200文字:\n${html.substring(html.length - 200)}`);
       
-      // HTMLの構造を分析
-      const analysis = analyzeHtmlStructure(html);
+      // Pythonロジックで構造分析
+      const analysis = analyzePythonStructure(html);
       
-      // 店舗名抽出テスト
-      const names = extractBusinessNamesDebug(html);
-      console.log(`✅ 抽出結果: ${names.length}件`);
-      names.forEach((name, i) => console.log(`  ${i+1}. ${name}`));
+      // Pythonロジックで店舗抽出
+      const shops = extractShopsWithPythonLogic(html);
+      console.log(`✅ 抽出結果: ${shops.length}件`);
+      shops.forEach((shop, i) => console.log(`  ${i+1}. ${shop.name} - ${shop.address}`));
       
       results.push({
         url,
         status: response.status,
         htmlSize: html.length,
         analysis,
-        extractedNames: names,
-        success: names.length > 0
+        extractedShops: shops,
+        success: shops.length > 0
       });
       
     } catch (error) {
@@ -69,11 +68,95 @@ async function debugEkitenScraping() {
       results.push({ url, error: error.toString() });
     }
     
-    // レート制限
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Pythonと同じ1秒間隔
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
   
   return results;
+}
+
+// Pythonロジック完全移植の構造分析
+function analyzePythonStructure(html: string) {
+  console.log(`\n📋 Pythonロジック構造分析:`);
+  
+  const analysis: any = {};
+  
+  // Pythonで使用されている正確なクラス名をチェック
+  const pythonClassPatterns = [
+    'p-shop-cassette',           // メインコンテナ
+    'p-shop-cassette__name',     // 店舗名
+    'p-shop-cassette__address',  // 住所
+    'p-shop-cassette__name-link',// 詳細リンク
+    'p-shop-cassette__genre-item', // カテゴリ
+    'c-pager__next',             // 次ページリンク
+    'p-shop-info__tel-number',   // 電話番号（詳細ページ）
+    'p-shop-info__official-website-link' // 公式サイト（詳細ページ）
+  ];
+  
+  analysis.pythonClasses = {};
+  pythonClassPatterns.forEach(className => {
+    const regex = new RegExp(`class="[^"]*${className}[^"]*"`, 'gi');
+    const matches = html.match(regex);
+    if (matches) {
+      analysis.pythonClasses[className] = matches.length;
+      console.log(`🐍 ${className}: ${matches.length}個発見`);
+      console.log(`    例: ${matches[0]}`);
+    } else {
+      console.log(`🐍 ${className}: ❌ 見つからず`);
+    }
+  });
+  
+  return analysis;
+}
+
+// Pythonロジック完全移植の店舗抽出
+function extractShopsWithPythonLogic(html: string): any[] {
+  console.log(`\n🐍 Pythonロジック完全移植: 店舗抽出開始`);
+  
+  const shops: any[] = [];
+  
+  // Pythonコードの正確なロジックを再現
+  // shops = soup.find_all("div", class_="p-shop-cassette")
+  const shopPattern = /<div[^>]*class="[^"]*p-shop-cassette[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+  let match;
+  
+  while ((match = shopPattern.exec(html)) !== null && shops.length < 10) {
+    const shopHtml = match[1];
+    console.log(`🔍 店舗コンテナ発見: ${shopHtml.substring(0, 100)}...`);
+    
+    // 店舗名: shop_name_tag = shop.find("p", class_="p-shop-cassette__name")
+    const nameMatch = shopHtml.match(/<p[^>]*class="[^"]*p-shop-cassette__name[^"]*"[^>]*>([^<]+)<\/p>/i);
+    const shopName = nameMatch ? nameMatch[1].trim() : "N/A";
+    
+    // 住所: address_tag = shop.find("p", class_="p-shop-cassette__address")
+    const addressMatch = shopHtml.match(/<p[^>]*class="[^"]*p-shop-cassette__address[^"]*"[^>]*>([^<]+)<\/p>/i);
+    const address = addressMatch ? addressMatch[1].trim() : "N/A";
+    
+    // 詳細ページリンク: detail_link_tag = shop.find("a", class_="p-shop-cassette__name-link")
+    const linkMatch = shopHtml.match(/<a[^>]*class="[^"]*p-shop-cassette__name-link[^"]*"[^>]*href="([^"]+)"[^>]*>/i);
+    const detailPath = linkMatch ? linkMatch[1] : "";
+    const detailUrl = detailPath ? `https://www.ekiten.jp${detailPath}` : "N/A";
+    
+    // カテゴリ: genres = shop.find_all("li", class_="p-shop-cassette__genre-item")
+    const genreMatches = shopHtml.match(/<li[^>]*class="[^"]*p-shop-cassette__genre-item[^"]*"[^>]*>([^<]+)<\/li>/gi);
+    const categories = genreMatches ? genreMatches.map(g => g.match(/>([^<]+)</)?.[1]?.trim() || '') : [];
+    
+    if (shopName !== "N/A" && shopName.length > 0) {
+      shops.push({
+        name: shopName,
+        address: address,
+        detailUrl: detailUrl,
+        categories: categories,
+        mainCategory: categories[0] || "N/A",
+        subCategories: categories.slice(1).join(", ") || ""
+      });
+      
+      console.log(`✅ 店舗抽出成功: ${shopName} (${address})`);
+    }
+  }
+  
+  console.log(`🎯 Pythonロジック: ${shops.length}件の店舗を抽出`);
+  return shops;
 }
 
 function analyzeHtmlStructure(html: string) {

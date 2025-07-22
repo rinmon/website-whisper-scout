@@ -36,56 +36,97 @@ async function debugEkitenScraping() {
   const results = [];
   
   for (const url of testUrlPatterns) {
-    console.log(`\n🔍 Pythonロジックテスト: ${url}`);
+    console.log(`\n🔍 詳細調査: ${url}`);
     
     try {
+      // より本物のブラウザに近いヘッダーを使用
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.5',
-          'Connection': 'keep-alive'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-User': '?1',
+          'Sec-Fetch-Dest': 'document',
+          'Referer': 'https://www.google.com/',
+          'Cache-Control': 'max-age=0'
         },
         signal: AbortSignal.timeout(30000)
       });
       
-      console.log(`📊 ステータス: ${response.status}`);
+      console.log(`📊 ステータス: ${response.status} ${response.statusText}`);
       console.log(`📊 Content-Type: ${response.headers.get('Content-Type')}`);
+      console.log(`📊 Server: ${response.headers.get('Server')}`);
+      console.log(`📊 Cloudflare-Ray-ID: ${response.headers.get('CF-Ray')}`);
+      console.log(`📊 Set-Cookie: ${response.headers.get('Set-Cookie')}`);
       
-      if (!response.ok) {
-        console.log(`❌ HTTPエラー: ${response.status} ${response.statusText}`);
-        results.push({ url, error: `HTTP ${response.status}` });
-        continue;
+      // レスポンスヘッダー全体を表示
+      const allHeaders: any = {};
+      response.headers.forEach((value, key) => {
+        allHeaders[key] = value;
+      });
+      console.log(`📊 全ヘッダー:`, allHeaders);
+      
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+        console.log(`📊 レスポンスサイズ: ${responseBody.length}文字`);
+        
+        if (responseBody.length > 0) {
+          console.log(`📊 先頭500文字:\n${responseBody.substring(0, 500)}`);
+          
+          // エラーページかどうか検出
+          const isCloudflareBlock = responseBody.includes('Cloudflare') || responseBody.includes('cf-ray');
+          const isJavaScriptRequired = responseBody.includes('JavaScript') || responseBody.includes('js-required');
+          const isCaptcha = responseBody.includes('captcha') || responseBody.includes('CAPTCHA');
+          const isRateLimited = responseBody.includes('rate limit') || responseBody.includes('too many requests');
+          
+          console.log(`🔍 Cloudflare保護: ${isCloudflareBlock ? 'はい' : 'いいえ'}`);
+          console.log(`🔍 JavaScript必須: ${isJavaScriptRequired ? 'はい' : 'いいえ'}`);
+          console.log(`🔍 CAPTCHA要求: ${isCaptcha ? 'はい' : 'いいえ'}`);
+          console.log(`🔍 レート制限: ${isRateLimited ? 'はい' : 'いいえ'}`);
+        }
+      } catch (bodyError) {
+        console.log(`⚠️ レスポンスボディ取得エラー: ${bodyError}`);
       }
       
-      const html = await response.text();
-      console.log(`📊 HTMLサイズ: ${html.length}文字`);
-      console.log(`📊 先頭500文字:\n${html.substring(0, 500)}`);
-      
-      // Pythonロジックで構造分析
-      const analysis = analyzePythonStructure(html);
-      
-      // Pythonロジックで店舗抽出
-      const shops = extractShopsWithPythonLogic(html);
-      console.log(`✅ 抽出結果: ${shops.length}件`);
-      shops.forEach((shop, i) => console.log(`  ${i+1}. ${shop.name} - ${shop.address}`));
-      
-      results.push({
-        url,
-        status: response.status,
-        htmlSize: html.length,
-        analysis,
-        extractedShops: shops,
-        success: shops.length > 0
-      });
+      if (response.ok) {
+        // 成功した場合の詳細分析
+        const analysis = analyzePythonStructure(responseBody);
+        const shops = extractShopsWithPythonLogic(responseBody);
+        
+        results.push({
+          url,
+          status: response.status,
+          headers: allHeaders,
+          htmlSize: responseBody.length,
+          analysis,
+          extractedShops: shops,
+          success: shops.length > 0
+        });
+      } else {
+        results.push({ 
+          url, 
+          status: response.status,
+          statusText: response.statusText,
+          headers: allHeaders,
+          responsePreview: responseBody.substring(0, 500),
+          error: `HTTP ${response.status} ${response.statusText}` 
+        });
+      }
       
     } catch (error) {
       console.log(`❌ 取得エラー: ${error}`);
       results.push({ url, error: error.toString() });
     }
     
-    // Pythonと同じ1秒間隔
+    // 1秒間隔
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
   

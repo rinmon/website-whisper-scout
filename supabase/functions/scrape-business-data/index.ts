@@ -49,7 +49,7 @@ class EkitenScraper {
         for (const categoryCode of categoryCodesForTest.slice(0, 2)) { // 最大2カテゴリ
           if (allBusinessNames.length >= limit) break;
           
-          const url = `https://www.ekiten.jp/${categoryCode}/${areaCode}/`;
+          const url = `https://www.ekiten.jp/g${categoryCode}/a${areaCode}/`;
           console.log(`🔍 URL取得: ${url}`);
           
           try {
@@ -106,7 +106,7 @@ class EkitenScraper {
         for (const categoryCode of categoryCodesForTest.slice(0, 2)) { // 最大2カテゴリ
           if (allBusinessNames.length >= limit) break;
           
-          const url = `https://www.ekiten.jp/${categoryCode}/${areaCode}/`;
+          const url = `https://www.ekiten.jp/g${categoryCode}/a${areaCode}/`;
           console.log(`🔍 従来方式URL取得: ${url}`);
           
           try {
@@ -161,39 +161,34 @@ class EkitenScraper {
     }
   }
 
-  // Firecrawl結果から店舗名を抽出（JavaScript実行後のHTML）
+  // Firecrawl結果から店舗名を抽出（PythonマニュアルのCSS selector対応）
   private static extractBusinessNamesFromFirecrawl(html: string, limit: number): string[] {
     const businessNames: string[] = [];
     
     console.log(`🔍 HTMLサイズ: ${html.length}文字, 先頭100文字: ${html.substring(0, 100)}`);
     
-    // 改良されたえきてんパターン（より幅広く対応）
+    // Pythonマニュアルに基づく正確なCSS selectorパターン
     const patterns = [
-      // 店舗名の基本パターン
-      /<a[^>]*href="[^"]*\/shop\/\d+[^"]*"[^>]*>([^<]+)<\/a>/gi,
-      /<h[1-6][^>]*>[\s\S]*?<a[^>]*href="[^"]*\/shop\/\d+[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      // メインパターン: p.p-shop-cassette__name（Pythonマニュアル推奨）
+      /<p[^>]*class="[^"]*p-shop-cassette__name[^"]*"[^>]*>([^<]+)<\/p>/gi,
       
-      // 新しいSPA構造対応
+      // div.p-shop-cassette内のリンク
+      /<div[^>]*class="[^"]*p-shop-cassette[^"]*"[^>]*>[\s\S]*?<a[^>]*class="[^"]*p-shop-cassette__name-link[^"]*"[^>]*>([^<]+)<\/a>/gi,
+      
+      // フォールバック: 一般的なショップパターン
+      /<a[^>]*href="[^"]*\/shop_\d+\/?"[^>]*>([^<]+)<\/a>/gi,
       /<div[^>]*class="[^"]*shop[^"]*"[^>]*>[\s\S]*?<.*?>([^<]{3,30})<\/.*?>/gi,
       /<span[^>]*class="[^"]*name[^"]*"[^>]*>([^<]{3,30})<\/span>/gi,
-      /<div[^>]*class="[^"]*title[^"]*"[^>]*>([^<]{3,30})<\/div>/gi,
       
-      // ReactやVueコンポーネント
-      /<div[^>]*data-testid="[^"]*shop[^"]*"[^>]*>[\s\S]*?>([^<]{3,30})<\/[^>]*>/gi,
-      /<div[^>]*data-cy="[^"]*shop[^"]*"[^>]*>[\s\S]*?>([^<]{3,30})<\/[^>]*>/gi,
-      
-      // JSON構造から
+      // JSON形式のデータ
       /"name"\s*:\s*"([^"]{3,30})"/gi,
       /"shopName"\s*:\s*"([^"]{3,30})"/gi,
-      /"title"\s*:\s*"([^"]{3,30})"/gi,
       
       // メタデータから
-      /<meta[^>]*content="([^"]{3,30})[^"]*店[^"]*"/gi,
       /<title>([^<]{3,30})[^<]*店[^<]*<\/title>/gi,
       
-      // よくある日本語パターン
-      />([あ-ん一-龯ァ-ヶ]{2,}[^<>]{0,10}[店舗館])[<]/gi,
-      />([^<>]{3,20}[サロン|クリニック|薬局|美容|カフェ|レストラン])[<]/gi
+      // 日本語店舗名パターン
+      />([あ-ん一-龯ァ-ヶ]{2,}[^<>]{0,10}[店舗館サロンクリニック薬局美容カフェレストラン])[<]/gi
     ];
 
     patterns.forEach((pattern, index) => {
@@ -241,19 +236,18 @@ class EkitenScraper {
   private static extractBusinessNames(html: string, limit: number): string[] {
     const names: string[] = [];
     
-    // マニュアルに基づく改良されたセレクタパターン
+    // Pythonマニュアルに基づく正確なCSS selectorパターン
     const patterns = [
-      // マニュアル推奨: 店舗詳細ページリンク
-      /<a[^>]*href="\/shop_\d+\/"[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*href="[^"]*\/shop\/\d+[^"]*"[^>]*>([^<]+)<\/a>/g,
+      // 最優先: Pythonマニュアル推奨セレクタ
+      /<p[^>]*class="[^"]*p-shop-cassette__name[^"]*"[^>]*>([^<]+)<\/p>/g,
+      /<a[^>]*class="[^"]*p-shop-cassette__name-link[^"]*"[^>]*>([^<]+)<\/a>/g,
+      /<p[^>]*class="[^"]*p-shop-cassette__address[^"]*"[^>]*>([^<]+)<\/p>/g,
       
-      // マニュアル推奨: 店舗名クラス
-      /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*shop-item[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*class="[^"]*shop-link[^"]*"[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
-      /<div[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
+      // えきてん店舗詳細ページリンク（Pythonマニュアルより）
+      /<a[^>]*href="\/shop_\d+\/?"[^>]*>([^<]+)<\/a>/g,
+      /<a[^>]*href="[^"]*\/shop_\d+[^"]*"[^>]*>([^<]+)<\/a>/g,
       
-      // より具体的なパターン
+      // フォールバック: 一般的なパターン
       /<div[^>]*class="[^"]*shop[^"]*"[^>]*>[\s\S]*?<h[1-6][^>]*>([^<]{3,30})<\/h[1-6]>/g,
       /<span[^>]*class="[^"]*name[^"]*"[^>]*>([^<]{3,30})<\/span>/g,
       

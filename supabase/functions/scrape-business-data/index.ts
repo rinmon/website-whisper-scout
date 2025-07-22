@@ -18,7 +18,7 @@ class EkitenScraper {
     return this.scrapeWithTraditionalMethod(prefecture, limit);
   }
 
-  // Firecrawlを使ったJavaScript対応スクレイピング
+  // Firecrawlを使ったJavaScript対応スクレイピング（マニュアル対応版）
   private static async scrapeWithFirecrawl(prefecture: string, limit: number): Promise<string[]> {
     try {
       const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
@@ -27,30 +27,56 @@ class EkitenScraper {
         return [];
       }
 
-      const prefectureMap: Record<string, string> = {
-        '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
-        '神奈川県': 'kanagawa', '福岡県': 'fukuoka', '北海道': 'hokkaido',
-        '京都府': 'kyoto', '兵庫県': 'hyogo', '埼玉県': 'saitama', '千葉県': 'chiba'
+      // 北海道地域コードマッピング（マニュアルより）
+      const areaCodeMap: Record<string, string[]> = {
+        '北海道': ['a01101', 'a01102', 'a01103', 'a01104', 'a01105'], // 札幌市5区を優先
+        '東京都': ['tokyo'],
+        '大阪府': ['osaka'],
+        '愛知県': ['aichi']
       };
+
+      // カテゴリコードマッピング（マニュアルより）
+      const categoryCodesForTest = ['g0104', 'g0201', 'g0306']; // グルメ、美容室、花店
       
-      const prefCode = prefectureMap[prefecture] || 'tokyo';
-      const url = `https://www.ekiten.jp/${prefCode}/`;
-      
-      console.log(`🏪 えきてんFirecrawlスクレイピング開始: ${url}`);
-      
+      const areaCodes = areaCodeMap[prefecture] || ['tokyo'];
       const app = new FirecrawlApp({ apiKey: firecrawlApiKey });
-      const crawlResult = await app.scrapeUrl(url, {
-        formats: ['html'],
-        waitFor: 3000, // JavaScript実行を3秒待機
-        timeout: 30000
-      });
+      const allBusinessNames: string[] = [];
+      
+      console.log(`🏪 えきてんFirecrawl開始: ${prefecture} - ${areaCodes.length}地域 x ${categoryCodesForTest.length}カテゴリ`);
+      
+      // 複数のURL組み合わせでスクレイピング
+      for (const areaCode of areaCodes.slice(0, 2)) { // 最大2地域
+        for (const categoryCode of categoryCodesForTest.slice(0, 2)) { // 最大2カテゴリ
+          if (allBusinessNames.length >= limit) break;
+          
+          const url = `https://www.ekiten.jp/${categoryCode}/${areaCode}/`;
+          console.log(`🔍 URL取得: ${url}`);
+          
+          try {
+            const crawlResult = await app.scrapeUrl(url, {
+              formats: ['html'],
+              waitFor: 3000,
+              timeout: 30000
+            });
 
-      if (!crawlResult.success) {
-        throw new Error(`Firecrawl失敗: ${crawlResult.error}`);
+            if (crawlResult.success && crawlResult.html) {
+              const names = this.extractBusinessNamesFromFirecrawl(crawlResult.html, Math.min(10, limit - allBusinessNames.length));
+              allBusinessNames.push(...names);
+              console.log(`✅ ${url}から${names.length}件取得`);
+            }
+            
+            // レート制限対策（1-2秒間隔）
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+          } catch (error) {
+            console.log(`❌ URL取得失敗: ${url} - ${error}`);
+          }
+        }
+        if (allBusinessNames.length >= limit) break;
       }
-
-      console.log('🎉 Firecrawlでの取得成功、店舗名を抽出中...');
-      return this.extractBusinessNamesFromFirecrawl(crawlResult.html || '', limit);
+      
+      console.log(`✅ Firecrawl総取得数: ${allBusinessNames.length}件`);
+      return allBusinessNames.slice(0, limit);
       
     } catch (error) {
       console.log(`❌ Firecrawlエラー: ${error}`);
@@ -58,45 +84,72 @@ class EkitenScraper {
     }
   }
 
-  // 従来の方式（JavaScript未対応）
+  // 従来の方式（JavaScript未対応、マニュアル対応版）
   private static async scrapeWithTraditionalMethod(prefecture: string, limit: number): Promise<string[]> {
     try {
-      const prefectureMap: Record<string, string> = {
-        '東京都': 'tokyo', '大阪府': 'osaka', '愛知県': 'aichi',
-        '神奈川県': 'kanagawa', '福岡県': 'fukuoka', '北海道': 'hokkaido',
-        '京都府': 'kyoto', '兵庫県': 'hyogo', '埼玉県': 'saitama', '千葉県': 'chiba'
+      // マニュアルのURL構造を使用
+      const areaCodeMap: Record<string, string[]> = {
+        '北海道': ['a01101', 'a01102'], // 札幌市中央区、北区
+        '東京都': ['tokyo'],
+        '大阪府': ['osaka'],
+        '愛知県': ['aichi']
       };
-      
-      const prefCode = prefectureMap[prefecture] || 'tokyo';
-      const url = `https://www.ekiten.jp/${prefCode}/`;
-      
-      console.log(`🏪 えきてん従来方式スクレイピング: ${url}`);
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.5',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1'
-        },
-        signal: AbortSignal.timeout(20000)
-      });
+      const categoryCodesForTest = ['g0104', 'g0201']; // グルメ、美容室
+      const areaCodes = areaCodeMap[prefecture] || ['tokyo'];
+      const allBusinessNames: string[] = [];
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      console.log(`🏪 えきてん従来方式スクレイピング: ${prefecture} - ${areaCodes.length}地域 x ${categoryCodesForTest.length}カテゴリ`);
+
+      // 複数のURL組み合わせでスクレイピング
+      for (const areaCode of areaCodes.slice(0, 1)) { // 最大1地域
+        for (const categoryCode of categoryCodesForTest.slice(0, 2)) { // 最大2カテゴリ
+          if (allBusinessNames.length >= limit) break;
+          
+          const url = `https://www.ekiten.jp/${categoryCode}/${areaCode}/`;
+          console.log(`🔍 従来方式URL取得: ${url}`);
+          
+          try {
+            const response = await fetch(url, {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'ja-JP,ja;q=0.9,en;q=0.5',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1'
+              },
+              signal: AbortSignal.timeout(20000)
+            });
+            
+            if (!response.ok) {
+              console.warn(`❌ HTTP ${response.status} for ${url}`);
+              continue;
+            }
+            
+            const html = await response.text();
+            if (html.length < 1000) {
+              console.warn(`⚠️ レスポンスが短すぎます: ${html.length}文字 for ${url}`);
+              continue;
+            }
+            
+            const names = this.extractBusinessNames(html, Math.min(10, limit - allBusinessNames.length));
+            allBusinessNames.push(...names);
+            console.log(`✅ ${url}から${names.length}件取得`);
+            
+            // レート制限対策（1-2秒間隔）
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+          } catch (error) {
+            console.warn(`❌ URL取得失敗: ${url} - ${error}`);
+          }
+        }
+        if (allBusinessNames.length >= limit) break;
       }
       
-      const html = await response.text();
-      if (html.length < 1000) {
-        throw new Error('レスポンスが短すぎます');
-      }
-      
-      const names = this.extractBusinessNames(html, limit);
-      if (names.length > 0) {
-        console.log(`✅ 従来方式で${names.length}件の店舗名を抽出`);
-        return names;
+      if (allBusinessNames.length > 0) {
+        console.log(`✅ 従来方式総取得数: ${allBusinessNames.length}件`);
+        return allBusinessNames.slice(0, limit);
       }
       
       throw new Error('店舗名が抽出できませんでした');
@@ -188,20 +241,39 @@ class EkitenScraper {
   private static extractBusinessNames(html: string, limit: number): string[] {
     const names: string[] = [];
     
+    // マニュアルに基づく改良されたセレクタパターン
     const patterns = [
+      // マニュアル推奨: 店舗詳細ページリンク
+      /<a[^>]*href="\/shop_\d+\/"[^>]*>([^<]+)<\/a>/g,
+      /<a[^>]*href="[^"]*\/shop\/\d+[^"]*"[^>]*>([^<]+)<\/a>/g,
+      
+      // マニュアル推奨: 店舗名クラス
       /<h3[^>]*class="[^"]*shop-name[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
       /<div[^>]*class="[^"]*shop-item[^"]*"[^>]*>[\s\S]*?<h[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
       /<a[^>]*class="[^"]*shop-link[^"]*"[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
       /<div[^>]*class="[^"]*shop-title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="[^"]*"[^>]*>([^<]+)<\/a>/g,
-      /<a[^>]*href="\/shop\/\d+\/"[^>]*>([^<]+)<\/a>/g
+      
+      // より具体的なパターン
+      /<div[^>]*class="[^"]*shop[^"]*"[^>]*>[\s\S]*?<h[1-6][^>]*>([^<]{3,30})<\/h[1-6]>/g,
+      /<span[^>]*class="[^"]*name[^"]*"[^>]*>([^<]{3,30})<\/span>/g,
+      
+      // JSON形式のデータ
+      /"name"\s*:\s*"([^"]{3,30})"/g,
+      /"shopName"\s*:\s*"([^"]{3,30})"/g
     ];
 
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.exec(html)) !== null && names.length < limit) {
-        const name = match[1].trim().replace(/\s+/g, ' ').replace(/&amp;/g, '&');
+        const name = match[1].trim()
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\s+/g, ' ');
         
-        if (name && name.length > 1 && !names.includes(name)) {
+        if (this.isValidBusinessName && this.isValidBusinessName(name) && !names.includes(name)) {
+          names.push(name);
+        } else if (!this.isValidBusinessName && name && name.length > 1 && !names.includes(name)) {
           names.push(name);
         }
       }

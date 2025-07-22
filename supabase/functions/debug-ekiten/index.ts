@@ -7,18 +7,35 @@ const corsHeaders = {
 
 // Pythonロジック完全移植版デバッグ
 async function debugEkitenScraping() {
-  console.log(`🐛 えきてんデバッグ開始（Pythonロジック完全移植版）`);
+  console.log(`🐛 えきてんURL構造調査（405エラー対応版）`);
   
-  // Pythonコードの正しいURL構造を使用
-  const testUrls = [
-    'https://www.ekiten.jp/area/hokkaido/sapporoshichuoku/',  // 札幌市中央区
-    'https://www.ekiten.jp/area/tokyo/shinjukuku/',           // 新宿区
-    'https://www.ekiten.jp/area/hokkaido/sapporoshikitaku/',  // 札幌市北区
+  // 複数のURL構造パターンをテスト
+  const testUrlPatterns = [
+    // パターン1: 元のg/aコード形式
+    'https://www.ekiten.jp/g0104/a01101/',
+    'https://www.ekiten.jp/g0201/a01101/',
+    
+    // パターン2: 地域検索形式
+    'https://www.ekiten.jp/search/?prefecture=01&city=01101',
+    'https://www.ekiten.jp/search/hokkaido/sapporo',
+    
+    // パターン3: トップページから構造調査
+    'https://www.ekiten.jp/',
+    'https://www.ekiten.jp/hokkaido/',
+    'https://www.ekiten.jp/tokyo/',
+    
+    // パターン4: 具体的な店舗カテゴリページ
+    'https://www.ekiten.jp/shop/',
+    'https://www.ekiten.jp/restaurant/',
+    
+    // パターン5: 実際に存在する可能性が高いURL
+    'https://www.ekiten.jp/pref/hokkaido/',
+    'https://www.ekiten.jp/pref/tokyo/'
   ];
   
   const results = [];
   
-  for (const url of testUrls) {
+  for (const url of testUrlPatterns) {
     console.log(`\n🔍 Pythonロジックテスト: ${url}`);
     
     try {

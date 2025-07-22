@@ -220,54 +220,142 @@ function analyzePythonStructure(html: string) {
   return analysis;
 }
 
-// Pythonロジック完全移植の店舗抽出
+// JSON-LDデータから店舗URLを抽出し、詳細情報を取得
 function extractShopsWithPythonLogic(html: string): any[] {
-  console.log(`\n🐍 Pythonロジック完全移植: 店舗抽出開始`);
+  console.log(`\n🔍 JSON-LD店舗URL抽出開始`);
   
   const shops: any[] = [];
   
-  // Pythonコードの正確なロジックを再現
-  // shops = soup.find_all("div", class_="p-shop-cassette")
-  const shopPattern = /<div[^>]*class="[^"]*p-shop-cassette[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-  let match;
-  
-  while ((match = shopPattern.exec(html)) !== null && shops.length < 10) {
-    const shopHtml = match[1];
-    console.log(`🔍 店舗コンテナ発見: ${shopHtml.substring(0, 100)}...`);
+  try {
+    // JSON-LDデータを抽出
+    const jsonLdMatches = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/gis);
     
-    // 店舗名: shop_name_tag = shop.find("p", class_="p-shop-cassette__name")
-    const nameMatch = shopHtml.match(/<p[^>]*class="[^"]*p-shop-cassette__name[^"]*"[^>]*>([^<]+)<\/p>/i);
-    const shopName = nameMatch ? nameMatch[1].trim() : "N/A";
-    
-    // 住所: address_tag = shop.find("p", class_="p-shop-cassette__address")
-    const addressMatch = shopHtml.match(/<p[^>]*class="[^"]*p-shop-cassette__address[^"]*"[^>]*>([^<]+)<\/p>/i);
-    const address = addressMatch ? addressMatch[1].trim() : "N/A";
-    
-    // 詳細ページリンク: detail_link_tag = shop.find("a", class_="p-shop-cassette__name-link")
-    const linkMatch = shopHtml.match(/<a[^>]*class="[^"]*p-shop-cassette__name-link[^"]*"[^>]*href="([^"]+)"[^>]*>/i);
-    const detailPath = linkMatch ? linkMatch[1] : "";
-    const detailUrl = detailPath ? `https://www.ekiten.jp${detailPath}` : "N/A";
-    
-    // カテゴリ: genres = shop.find_all("li", class_="p-shop-cassette__genre-item")
-    const genreMatches = shopHtml.match(/<li[^>]*class="[^"]*p-shop-cassette__genre-item[^"]*"[^>]*>([^<]+)<\/li>/gi);
-    const categories = genreMatches ? genreMatches.map(g => g.match(/>([^<]+)</)?.[1]?.trim() || '') : [];
-    
-    if (shopName !== "N/A" && shopName.length > 0) {
-      shops.push({
-        name: shopName,
-        address: address,
-        detailUrl: detailUrl,
-        categories: categories,
-        mainCategory: categories[0] || "N/A",
-        subCategories: categories.slice(1).join(", ") || ""
-      });
-      
-      console.log(`✅ 店舗抽出成功: ${shopName} (${address})`);
+    if (!jsonLdMatches) {
+      console.log(`❌ JSON-LDデータが見つかりません`);
+      return shops;
     }
+    
+    for (const match of jsonLdMatches) {
+      try {
+        const jsonContent = match.match(/>(.*?)<\//s)?.[1];
+        if (!jsonContent) continue;
+        
+        const jsonData = JSON.parse(jsonContent);
+        console.log(`🔍 JSON-LDデータ解析: ${JSON.stringify(jsonData).substring(0, 200)}...`);
+        
+        // 配列の場合は各要素をチェック
+        const dataArray = Array.isArray(jsonData) ? jsonData : [jsonData];
+        
+        for (const data of dataArray) {
+          // ItemListを探す
+          if (data['@type'] === 'ItemList' && data.itemListElement) {
+            console.log(`✅ ItemList発見: ${data.numberOfItems}件の店舗URL`);
+            
+            for (const item of data.itemListElement.slice(0, 5)) { // 最初の5件をテスト
+              if (item.url && item.url.includes('/shop_')) {
+                console.log(`📋 店舗URL取得: ${item.url}`);
+                
+                // 各店舗の詳細情報を取得（最初の1件のみテスト）
+                if (shops.length === 0) {
+                  try {
+                    const shopDetails = await fetchShopDetails(item.url);
+                    if (shopDetails) {
+                      shops.push({
+                        url: item.url,
+                        position: item.position,
+                        ...shopDetails
+                      });
+                    }
+                  } catch (error) {
+                    console.log(`⚠️ 店舗詳細取得エラー: ${error}`);
+                  }
+                }
+              }
+            }
+            
+            // URLリストを返す（詳細取得は1件のみテスト）
+            return data.itemListElement.map((item: any, index: number) => ({
+              position: item.position || index + 1,
+              url: item.url,
+              type: 'shop_url',
+              available: item.url && item.url.includes('/shop_')
+            }));
+          }
+        }
+        
+      } catch (parseError) {
+        console.log(`⚠️ JSON解析エラー: ${parseError}`);
+      }
+    }
+    
+  } catch (error) {
+    console.log(`❌ 全般エラー: ${error}`);
   }
   
-  console.log(`🎯 Pythonロジック: ${shops.length}件の店舗を抽出`);
+  console.log(`🎯 JSON-LD抽出結果: ${shops.length}件の詳細情報 + URLリスト`);
   return shops;
+}
+
+// 個別店舗の詳細情報を取得
+async function fetchShopDetails(shopUrl: string): Promise<any | null> {
+  console.log(`\n🏪 店舗詳細取得: ${shopUrl}`);
+  
+  try {
+    const response = await fetch(shopUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    
+    if (!response.ok) {
+      console.log(`❌ 店舗ページエラー: HTTP ${response.status}`);
+      return null;
+    }
+    
+    const html = await response.text();
+    console.log(`📊 店舗ページサイズ: ${html.length}文字`);
+    
+    // 店舗詳細情報を抽出
+    const shopDetails: any = {};
+    
+    // 店舗名
+    const nameMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/i) || 
+                     html.match(/<title>([^<|]+)[|｜]?[^<]*<\/title>/i);
+    if (nameMatch) {
+      shopDetails.name = nameMatch[1].trim().replace(/\s*[|｜]\s*エキテン.*$/gi, '');
+    }
+    
+    // 住所
+    const addressPattern = /住所[^>]*>([^<]*北海道[^<]+)</i;
+    const addressMatch = html.match(addressPattern);
+    if (addressMatch) {
+      shopDetails.address = addressMatch[1].trim();
+    }
+    
+    // 電話番号
+    const phonePattern = /tel:([0-9-]+)/i;
+    const phoneMatch = html.match(phonePattern);
+    if (phoneMatch) {
+      shopDetails.phone = phoneMatch[1];
+    }
+    
+    // 公式サイト
+    const websitePattern = /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*>.*?公式[^<]*<\/a>/i;
+    const websiteMatch = html.match(websitePattern);
+    if (websiteMatch) {
+      shopDetails.website = websiteMatch[1];
+    }
+    
+    console.log(`✅ 店舗詳細抽出完了:`, shopDetails);
+    return shopDetails;
+    
+  } catch (error) {
+    console.log(`❌ 店舗詳細取得エラー: ${error}`);
+    return null;
+  }
 }
 
 function analyzeHtmlStructure(html: string) {

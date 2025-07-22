@@ -228,9 +228,10 @@ const DataSources = () => {
 
             <DataSourceSelector
               selectedGroup={selectedDataSourceGroup}
-                onGroupSelect={() => {
-                  // データソース選択は読み取り専用でグローバル状態を使用
-                }}
+              onGroupSelect={(groupValue) => {
+                // グローバル状態を更新
+                useGlobalProgress.setState({ selectedDataSourceGroup: groupValue });
+              }}
               onStartFetch={handleCorporateDataFetch}
               isRunning={isSavingBusinesses}
             />
@@ -345,7 +346,7 @@ const DataSources = () => {
                   <Badge className="bg-green-100 text-green-800">スクレイピング</Badge>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <div>優先度: 1</div>
+                  <div>優先度: 2</div>
                   <div>レート制限: 3秒間隔</div>
                   <div>URL: <a href="https://tabelog.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">tabelog.com</a></div>
                   <div>全国の飲食店情報を取得</div>
@@ -361,8 +362,8 @@ const DataSources = () => {
                   <Badge className="bg-green-100 text-green-800">スクレイピング</Badge>
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <div>優先度: 2</div>
-                  <div>レート制限: 3秒間隔</div>
+                  <div>優先度: 1（最優先）</div>
+                  <div>レート制限: 4秒間隔</div>
                   <div>URL: <a href="https://www.ekiten.jp" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">ekiten.jp</a></div>
                   <div>地域密着型の店舗情報を取得</div>
                 </div>
